@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -10,41 +9,35 @@ import { z } from "zod"
 import { Trash2, Save, ArrowLeft, Upload, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "@/components/ui/use-toast"
+import { createUser, updateUser } from "@/lib/api"
 
-const userFormSchema = z.object({
+// Esquema para creación de usuario
+const createUserSchema = z.object({
   name: z.string().min(2, {
     message: "Name must be at least 2 characters.",
   }),
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
+  }),
   phone: z.string().optional(),
   address: z.string().optional(),
-  role: z.string({
-    required_error: "Please select a role.",
-  }),
-  status: z.boolean().default(true),
-  notes: z.string().optional(),
+  role: z.enum(["admin", "vendor", "customer"]),
 })
 
-type UserFormValues = z.infer<typeof userFormSchema>
+// Esquema para actualización de usuario (sin password obligatorio)
+const updateUserSchema = createUserSchema.omit({ password: true }).extend({
+  password: z.string().min(6).optional().or(z.literal("")),
+})
 
-const defaultValues: Partial<UserFormValues> = {
-  name: "",
-  email: "",
-  phone: "",
-  address: "",
-  role: "Customer",
-  status: true,
-  notes: "",
-}
+type UserFormValues = z.infer<typeof createUserSchema>
 
 interface UserFormProps {
   user?: any
@@ -52,51 +45,94 @@ interface UserFormProps {
 
 export function UserForm({ user }: UserFormProps) {
   const router = useRouter()
-  const [avatar, setAvatar] = useState<string | null>(user?.avatar || null)
-
-  // Convert the user data to match our form schema
-  const userValues = user
-    ? {
-        ...user,
-        status: user.status === "active",
-      }
-    : defaultValues
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string>(user?.profilePicture || "")
+  const [isUploading, setIsUploading] = useState(false)
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
-    defaultValues: userValues,
+    resolver: zodResolver(user ? updateUserSchema : createUserSchema),
+    defaultValues: user
+      ? {
+          name: user.name,
+          email: user.email,
+          phone: user.phone || undefined,
+          address: user.address || undefined,
+          role: user.role,
+          password: "", // opcional en actualización
+        }
+      : {
+          name: "",
+          email: "",
+          password: "",
+          phone: undefined,
+          address: undefined,
+          role: "customer",
+        },
   })
 
-  function onSubmit(data: UserFormValues) {
-    toast({
-      title: "User saved",
-      description: "The user has been saved successfully.",
-    })
-    console.log(data)
-    // In a real app, you would save the data to your backend here
-    router.push("/users")
-  }
-
-  function handleDelete() {
-    toast({
-      title: "User deleted",
-      description: "The user has been deleted successfully.",
-      variant: "destructive",
-    })
-    // In a real app, you would delete the user from your backend here
-    router.push("/users")
-  }
-
-  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const imageUrl = URL.createObjectURL(file)
-      setAvatar(imageUrl)
+    if (!file) return
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("upload_preset", "your_upload_preset") // Reemplaza con tu preset
+      
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/your_cloud_name/image/upload`, // Reemplaza con tu cloud name
+        { method: "POST", body: formData }
+      )
+      
+      const data = await response.json()
+      setCloudinaryUrl(data.secure_url)
+      toast({ title: "Avatar uploaded successfully" })
+    } catch (error) {
       toast({
-        title: "Avatar uploaded",
-        description: "The avatar has been uploaded successfully.",
+        title: "Error uploading avatar",
+        description: "Could not upload image to Cloudinary",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const onSubmit = async (data: UserFormValues) => {
+    try {
+      // Armamos el payload sin incluir campos vacíos
+      const userData: any = {
+        ...data,
+        phone: data.phone || undefined,
+        address: data.address || undefined,
+      }
+
+      // Solo incluimos profilePicture si se subió una imagen
+      if (cloudinaryUrl) {
+        userData.profilePicture = cloudinaryUrl
+      }
+
+      if (user) {
+        await updateUser(user.id, userData)
+        toast({ title: "User updated successfully" })
+      } else {
+        await createUser(userData)
+        toast({ title: "User created successfully" })
+      }
+
+      router.push("/users")
+    } catch (error) {
+      toast({
+        title: "Error saving user",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
       })
     }
+  }
+
+  const handleDelete = async () => {
+    // Implementa la lógica de eliminación según necesites
+    router.push("/users")
   }
 
   return (
@@ -124,21 +160,28 @@ export function UserForm({ user }: UserFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>User Avatar</CardTitle>
-            <CardDescription>Upload a profile picture for this user</CardDescription>
+            <CardDescription>Upload to Cloudinary</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <Avatar className="h-32 w-32 mb-4">
-              <AvatarImage src={avatar || ""} alt="Avatar" />
+              <AvatarImage src={cloudinaryUrl} alt="Avatar" />
               <AvatarFallback className="text-4xl">
-                {form.watch("name") ? form.watch("name").charAt(0) : <User />}
+                {form.watch("name")?.[0] || <User />}
               </AvatarFallback>
             </Avatar>
 
-            <Input type="file" accept="image/*" className="hidden" id="avatar-upload" onChange={handleAvatarUpload} />
-            <Button variant="outline" asChild>
+            <Input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              id="avatar-upload"
+              onChange={handleImageUpload}
+              disabled={isUploading}
+            />
+            <Button variant="outline" asChild disabled={isUploading}>
               <label htmlFor="avatar-upload" className="cursor-pointer">
                 <Upload className="mr-2 h-4 w-4" />
-                Upload Avatar
+                {isUploading ? "Uploading..." : "Upload Avatar"}
               </label>
             </Button>
           </CardContent>
@@ -148,7 +191,7 @@ export function UserForm({ user }: UserFormProps) {
           <Card>
             <CardHeader>
               <CardTitle>User Information</CardTitle>
-              <CardDescription>Enter the user's personal and account information</CardDescription>
+              <CardDescription>Enter user details</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -161,7 +204,7 @@ export function UserForm({ user }: UserFormProps) {
                         <FormItem>
                           <FormLabel>Full Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter full name" {...field} />
+                            <Input placeholder="John Doe" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -175,21 +218,41 @@ export function UserForm({ user }: UserFormProps) {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter email address" {...field} />
+                            <Input placeholder="email@example.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
 
+                    {!user && (
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
                     <FormField
                       control={form.control}
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
+                          <FormLabel>Phone</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter phone number" {...field} />
+                            <Input placeholder="+1 234 567 890" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -202,16 +265,19 @@ export function UserForm({ user }: UserFormProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Role</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select a role" />
+                                <SelectValue placeholder="Select role" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Admin">Admin</SelectItem>
-                              <SelectItem value="Staff">Staff</SelectItem>
-                              <SelectItem value="Customer">Customer</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="vendor">Staff</SelectItem>
+                              <SelectItem value="customer">Customer</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -227,39 +293,9 @@ export function UserForm({ user }: UserFormProps) {
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter address" {...field} />
+                          <Input placeholder="123 Main St" {...field} />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Enter notes about this user" className="min-h-32" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Active Status</FormLabel>
-                          <FormDescription>Set whether this user account is active or inactive</FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
                       </FormItem>
                     )}
                   />
@@ -278,4 +314,3 @@ export function UserForm({ user }: UserFormProps) {
     </div>
   )
 }
-

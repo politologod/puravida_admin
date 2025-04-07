@@ -94,23 +94,6 @@ export const getUserById = async (id: string) => {
 	}
 };
 
-export const updateUser = async (
-	id: string,
-	name: string,
-	address: string,
-	phone: string
-) => {
-	try {
-		const response = await api.put(`/user/${id}`, { name, address, phone });
-		return response.data;
-	} catch (error) {
-		if (axios.isAxiosError(error) && error.response) {
-			throw new Error(error.response.data?.message || "Failed to update user");
-		}
-		throw new Error("Failed to update user");
-	}
-};
-
 export const deleteUser = async (id: string) => {
 	try {
 		const response = await api.delete(`/user/${id}`);
@@ -122,3 +105,30 @@ export const deleteUser = async (id: string) => {
 		throw new Error("Failed to delete user");
 	}
 };
+
+// 5. Función createUser modificada para enviar JSON
+export const createUser = async (userData: {
+	name: string;
+	email: string;
+	password?: string;
+	phone?: string;
+	address?: string;
+	role: string;
+	profilePicture?: string;
+}) => {
+        console.log("Datos del usuario:", userData);
+		const response = await api.post("/users", userData);
+		return console.log(response);
+};
+
+export const updateUser = async (id: string, userData: any) => {
+    try {
+        const response = await api.put(`/user/${id}`, userData);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            throw new Error(error.response.data?.message || "Failed to update user");
+        }
+        throw new Error("Failed to update user");
+    }
+}
