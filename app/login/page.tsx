@@ -28,9 +28,7 @@ export default function LoginPage() {
         title: "Inicio de sesión exitoso",
         description: "Bienvenido al sistema POS Puravida 23",
       })
-      localStorage.setItem("user", JSON.stringify(response))
-      localStorage.setItem("token", response.token)
-      document.cookie = `token=${response.token}; path=/; SameSite=Lax; `;
+      console.log("Respuesta del servidor:", response)
 // 1 day
       router.push("/dashboard")
     } catch (error) {

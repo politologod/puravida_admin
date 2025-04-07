@@ -1,123 +1,124 @@
+// Primero instala axios: npm install axios
+import axios from "axios";
 
+// Configuración base de Axios
+const api = axios.create({
+	baseURL: "http://localhost:2300/api",
+	withCredentials: true, // Esto envía cookies automáticamente
+	headers: {
+		"Content-Type": "application/json",
+	},
+});
 
-function getCookie(name: string) {
-    const cookies = document.cookie.split('; ');
-    for (const cookie of cookies) {
-        const [key, value] = cookie.split('=');
-        if (key === name) {
-            return value;
-        }
-    }
-    return null;
-}
-
+// Interceptor para manejar errores globalmente
+api.interceptors.response.use(
+	(response) => response,
+	(error) => {
+		if (error.response?.status === 401) {
+			window.location.href = "/login"; // Redirige si no autenticado
+		}
+		return Promise.reject(error);
+	}
+);
 
 export const login = async (email: string, password: string) => {
-    const response = await fetch('http://localhost:2300/api/auth/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to login');
-    }
-    const data = await response.json();
-    document.cookie = `token=${data.token}`;
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('role', data.token);
-    return data;
+	try {
+		const response = await api.post("/auth/login", { email, password });
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to login");
+		}
+		throw new Error("Failed to login");
+	}
 };
 
-
-
-export const register = async (email: string, password: string, name: string, address: string, phone: string) => {
-    const response = await fetch('http://localhost:2300/api/register', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, name, address, phone }),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to register');
-    }
-    const data = await response.json();
-    document.cookie = `token= ${getCookie('token')}; path=/; SameSite=Lax; `;
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('role', data.token);
-    return data;
+export const register = async (
+	email: string,
+	password: string,
+	name: string,
+	address: string,
+	phone: string
+) => {
+	try {
+		const response = await api.post("/register", {
+			email,
+			password,
+			name,
+			address,
+			phone,
+		});
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to register");
+		}
+		throw new Error("Failed to register");
+	}
 };
 
 export const logout = async () => {
-    const response = await fetch('http://localhost:2300/api/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            "authorization": `Bearer ${getCookie('token')}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-    });
-    if (!response.ok) {
-        throw new Error('Failed to logout');
-    }
-    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    localStorage.removeItem('user');
-    localStorage.removeItem('role');
-    return response.json();
+	try {
+		const response = await api.post("/logout");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to logout");
+		}
+		throw new Error("Failed to logout");
+	}
 };
 
 export const getUser = async () => {
-    const response = await fetch('http://localhost:2300/api/users', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getCookie('token')}`,
-        },
-    });
-    console.log(response.json());
-    if (!response.ok) {
-        throw new Error('Failed to get user');
-    }
-    return response.json();
+	try {
+		const response = await api.get("/users");
+		console.log("Datos de usuarios:", response.data);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to get users");
+		}
+		throw new Error("Failed to get users");
+	}
 };
 
 export const getUserById = async (id: string) => {
-    const response = await fetch(`http://localhost:2300/api/user/${id}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${document.cookie.split('token: ')[1]}`,
-        },
-    });
-    if (!response.ok) {
-        throw new Error('Failed to get user');
-    }
-    return response.json();
+	try {
+		const response = await api.get(`/user/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to get user");
+		}
+		throw new Error("Failed to get user");
+	}
 };
 
-export const updateUser = async (id: string, name: string, address: string, phone: string) => {
-    const response = await fetch(`http://localhost:2300/api/user/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ name, address, phone }),
-        headers: {
-            'Authorization': `Bearer ${document.cookie.split('token: ')[1]}`,
-        },
-    });
-    if (!response.ok) {
-        throw new Error('Failed to update user');
-    }
-    return response.json();
+export const updateUser = async (
+	id: string,
+	name: string,
+	address: string,
+	phone: string
+) => {
+	try {
+		const response = await api.put(`/user/${id}`, { name, address, phone });
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to update user");
+		}
+		throw new Error("Failed to update user");
+	}
 };
 
 export const deleteUser = async (id: string) => {
-    const response = await fetch(`http://localhost:2300/api/user/${id}`, {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${document.cookie.split('token: ')[1]}`,
-        },
-    });
-    return response.json();
+	try {
+		const response = await api.delete(`/user/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to delete user");
+		}
+		throw new Error("Failed to delete user");
+	}
 };
-
-
