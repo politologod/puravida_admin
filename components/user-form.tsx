@@ -49,7 +49,7 @@ export function UserForm({ user }: UserFormProps) {
   const [isUploading, setIsUploading] = useState(false)
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(user ? updateUserSchema : createUserSchema),
+    resolver: zodResolver(user ? (updateUserSchema as z.ZodType<UserFormValues>) : createUserSchema),
     defaultValues: user
       ? {
           name: user.name,
