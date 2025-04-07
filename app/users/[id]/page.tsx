@@ -1,23 +1,23 @@
 "use client"
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { SidebarNav } from "../../../components/sidebar-nav"
 import { Header } from "../../../components/header"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin, Calendar, ShoppingBag, Clock } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getUserById, deleteUser } from "@/lib/api"
-// This would normally fetch the user data from an API
+
 interface User {
   id?: number
   name?: string
-    email?: string
-    phone?: string
+  email?: string
+  phone?: string
   address?: string
   profilePic?: string
   role?: string
@@ -26,7 +26,7 @@ interface User {
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [user, setUser] = useState<User>({});
-  const gettingUser = async () => {
+  const obtenerUsuario = async () => {
     try {
       const user = await getUserById(id);
       const parsedUser = {
@@ -36,38 +36,34 @@ export default function UserProfilePage() {
         phone: user.phone,
         address: user.address,
         profilePic: user.profilePic,
-        role: user.role || "customer",
+        role: user.role || "cliente",
       };
       setUser(parsedUser);
-      console.log("User data:", parsedUser);
+      console.log("Datos del usuario:", parsedUser);
       return user;
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      console.error("Error al obtener los datos del usuario:", error);
       return null;
     }
-  };  
+  };
 
   useEffect(() => {
     if (id) {
-      gettingUser()
+      obtenerUsuario()
     }
   }, [id])
 
-  const handleDeleteUser = async () => {
+  const manejarEliminarUsuario = async () => {
     try {
       await deleteUser(id);
-      console.log("User deleted successfully");
+      console.log("Usuario eliminado con éxito");
 
-      // Redirect or show success message 
-      // For example, redirect to the users list page
+      // Redirigir o mostrar mensaje de éxito
       window.location.href = "/users";
     } catch (error) {
-      console.error("Error deleting user:", error);
-      // Handle error (e.g., show error message)
+      console.error("Error al eliminar el usuario:", error);
     }
-
   }
-
 
   return (
     <div className="flex h-screen bg-background">
@@ -80,21 +76,21 @@ export default function UserProfilePage() {
               <Button variant="outline" asChild>
                 <a href="/users">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Users
+                  Volver a Usuarios
                 </a>
               </Button>
-              <h1 className="text-2xl font-bold">User Profile</h1>
+              <h1 className="text-2xl font-bold">Perfil del Usuario</h1>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" asChild>
                 <Link href={`/users/${user.id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" />
-                  Edit User
+                  Editar Usuario
                 </Link>
               </Button>
-              <Button variant="destructive" onClick={handleDeleteUser}>
+              <Button variant="destructive" onClick={manejarEliminarUsuario}>
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete User
+                Eliminar Usuario
               </Button>
             </div>
           </div>
@@ -145,51 +141,20 @@ export default function UserProfilePage() {
             <div className="lg:col-span-2 space-y-6">
               <Tabs defaultValue="orders">
                 <TabsList className="grid grid-cols-2 mb-6">
-                  <TabsTrigger value="orders">Orders</TabsTrigger>
-                  <TabsTrigger value="notes">Notes & Preferences</TabsTrigger>
+                  <TabsTrigger value="orders">Pedidos</TabsTrigger>
+                  <TabsTrigger value="notes">Notas y Preferencias</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="orders" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Recent Orders</CardTitle>
-                      <CardDescription>The user's most recent orders</CardDescription>
+                      <CardTitle>Pedidos Recientes</CardTitle>
+                      <CardDescription>Los pedidos más recientes del usuario</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {/*<div className="space-y-4">
-                        {user.recentOrders.map((order) => (
-                          <div
-                            key={order.id}
-                            className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                          >
-                            <div>
-                              <div className="font-medium">{order.id}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {order.date} • {order.items} items
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="font-medium">${order.total.toFixed(2)}</div>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  order.status === "Delivered"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                    : order.status === "Processing"
-                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                                      : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                                }
-                              >
-                                {order.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>*/}
-
                       <div className="mt-4 text-center">
                         <Button variant="outline" asChild>
-                          <a href="/orders">View All Orders</a>
+                          <a href="/orders">Ver Todos los Pedidos</a>
                         </Button>
                       </div>
                     </CardContent>
@@ -197,22 +162,21 @@ export default function UserProfilePage() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Order Statistics</CardTitle>
-                      <CardDescription>Overview of user's ordering patterns</CardDescription>
+                      <CardTitle>Estadísticas de Pedidos</CardTitle>
+                      <CardDescription>Resumen de los patrones de pedidos del usuario</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="bg-muted rounded-lg p-4 text-center">
-                          {/*<div className="text-3xl font-bold">{user.orders}</div>*/}
-                          <div className="text-sm text-muted-foreground">Total Orders</div>
+                          <div className="text-sm text-muted-foreground">Pedidos Totales</div>
                         </div>
                         <div className="bg-muted rounded-lg p-4 text-center">
                           <div className="text-3xl font-bold">$349.85</div>
-                          <div className="text-sm text-muted-foreground">Lifetime Value</div>
+                          <div className="text-sm text-muted-foreground">Valor de Vida</div>
                         </div>
                         <div className="bg-muted rounded-lg p-4 text-center">
                           <div className="text-3xl font-bold">$29.15</div>
-                          <div className="text-sm text-muted-foreground">Avg. Order Value</div>
+                          <div className="text-sm text-muted-foreground">Valor Promedio por Pedido</div>
                         </div>
                       </div>
                     </CardContent>
@@ -222,25 +186,24 @@ export default function UserProfilePage() {
                 <TabsContent value="notes" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Preferences</CardTitle>
-                      <CardDescription>User's product and service preferences</CardDescription>
+                      <CardTitle>Preferencias</CardTitle>
+                      <CardDescription>Preferencias de productos y servicios del usuario</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-
                         <div>
-                          <h3 className="text-sm font-medium text-muted-foreground mb-2">Delivery Preferences</h3>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-2">Preferencias de Entrega</h3>
                           <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">Weekend Delivery</Badge>
-                            <Badge variant="secondary">Afternoon (2-5pm)</Badge>
+                            <Badge variant="secondary">Entrega en Fin de Semana</Badge>
+                            <Badge variant="secondary">Tarde (2-5pm)</Badge>
                           </div>
                         </div>
 
                         <div>
-                          <h3 className="text-sm font-medium text-muted-foreground mb-2">Communication Preferences</h3>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-2">Preferencias de Comunicación</h3>
                           <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">Email</Badge>
-                            <Badge variant="secondary">SMS Notifications</Badge>
+                            <Badge variant="secondary">Correo Electrónico</Badge>
+                            <Badge variant="secondary">Notificaciones SMS</Badge>
                           </div>
                         </div>
                       </div>
@@ -255,4 +218,3 @@ export default function UserProfilePage() {
     </div>
   )
 }
-
