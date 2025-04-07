@@ -6,30 +6,26 @@ import { UserForm } from "@/components/user-form"
 import { getUserById, updateUser } from "@/lib/api"
 import { useParams } from "next/navigation"
 
-
 export default function EditUserPage() {
   const { id } = useParams<{ id: string }>();
-  //const { id } = useParams() as { id: string | undefined };
   const [userData, setUserData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const params = useParams();
-  console.log('params:', params); 
+  console.log('parámetros:', params); 
   
-  
-  // 👈 DEBUG CRÍTICO
   const gettingUser = async () => {
     try {
       setLoading(true)
       if (!id) {
-        throw new Error("User ID is undefined");
+        throw new Error("El ID del usuario no está definido");
       }
       const user = await getUserById(id);
       setUserData(user)
       setLoading(false)
     } catch (error) {
-      console.error("Error fetching user data:", error)
-      setError("Error fetching user data")
+      console.error("Error al obtener los datos del usuario:", error)
+      setError("Error al obtener los datos del usuario")
       setLoading(false)
     }
   }
@@ -41,12 +37,6 @@ export default function EditUserPage() {
   }, [id])
 
 
-  const handleUserUpdate = async (updatedUser: any, id: any) => {
-    const update = updateUser(id, updatedUser)
-    console.log("User updated:", update)
-  }
-
-
   return (
     <div className="flex h-screen bg-background">
       <SidebarNav />
@@ -54,13 +44,13 @@ export default function EditUserPage() {
         <Header />
         <div className="flex-1 overflow-auto p-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">Edit User</h1>
-            <p className="text-muted-foreground">Update user information</p>
+            <h1 className="text-2xl font-bold">Editar Usuario</h1>
+            <p className="text-muted-foreground">Actualizar información del usuario</p>
           </div>
 
-          {loading && <p className="text-muted-foreground">Loading...</p>}
+          {loading && <p className="text-muted-foreground">Cargando...</p>}
           {error && <p className="text-red-500">{error}</p>}
-          {userData && <UserForm user={userData} />}
+          {userData && <UserForm user={userData} idUser={id} />}
         </div>
       </div>
     </div>

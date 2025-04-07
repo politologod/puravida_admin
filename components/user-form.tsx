@@ -1,7 +1,6 @@
 "use client"
-
-import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -14,25 +13,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "@/components/ui/use-toast"
-import { createUser, updateUser } from "@/lib/api"
+import { createUser, updateUser, deleteUser } from "@/lib/api"
 
-// Esquema para creación de usuario
 const createUserSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  password: z.string().min(6, {
-    message: "Password must be at least 6 characters.",
-  }),
+  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  email: z.string().email({ message: "Por favor, introduce una dirección de correo válida." }),
+  password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
   phone: z.string().optional(),
   address: z.string().optional(),
   role: z.enum(["admin", "vendor", "customer"]),
 })
 
-// Esquema para actualización de usuario (sin password obligatorio)
 const updateUserSchema = createUserSchema.omit({ password: true }).extend({
   password: z.string().min(6).optional().or(z.literal("")),
 })
@@ -41,13 +32,13 @@ type UserFormValues = z.infer<typeof createUserSchema>
 
 interface UserFormProps {
   user?: any
+  idUser: string
 }
 
-export function UserForm({ user }: UserFormProps) {
+export function UserForm({ user, idUser }: UserFormProps) {
   const router = useRouter()
   const [cloudinaryUrl, setCloudinaryUrl] = useState<string>(user?.profilePicture || "")
   const [isUploading, setIsUploading] = useState(false)
-
   const form = useForm<UserFormValues>({
     resolver: zodResolver(user ? (updateUserSchema as z.ZodType<UserFormValues>) : createUserSchema),
     defaultValues: user
@@ -86,11 +77,11 @@ export function UserForm({ user }: UserFormProps) {
       
       const data = await response.json()
       setCloudinaryUrl(data.secure_url)
-      toast({ title: "Avatar uploaded successfully" })
+      toast({ title: "Avatar subido exitosamente" })
     } catch (error) {
       toast({
-        title: "Error uploading avatar",
-        description: "Could not upload image to Cloudinary",
+        title: "Error al subir el avatar",
+        description: "No se pudo subir la imagen a Cloudinary",
         variant: "destructive",
       })
     } finally {
@@ -100,39 +91,42 @@ export function UserForm({ user }: UserFormProps) {
 
   const onSubmit = async (data: UserFormValues) => {
     try {
-      // Armamos el payload sin incluir campos vacíos
       const userData: any = {
         ...data,
         phone: data.phone || undefined,
         address: data.address || undefined,
       }
 
-      // Solo incluimos profilePicture si se subió una imagen
       if (cloudinaryUrl) {
         userData.profilePicture = cloudinaryUrl
       }
 
       if (user) {
         await updateUser(user.id, userData)
-        toast({ title: "User updated successfully" })
+        toast({ title: "Usuario actualizado exitosamente" })
       } else {
         await createUser(userData)
-        toast({ title: "User created successfully" })
+        toast({ title: "Usuario creado exitosamente" })
       }
 
       router.push("/users")
     } catch (error) {
       toast({
-        title: "Error saving user",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: "Error al guardar el usuario",
+        description: error instanceof Error ? error.message : "Error desconocido",
         variant: "destructive",
       })
     }
   }
 
-  const handleDelete = async () => {
-    // Implementa la lógica de eliminación según necesites
-    router.push("/users")
+  // Función para eliminar el usuario
+  const handleUserDelete = async () => {
+      const response = await deleteUser(idUser)
+      if(!response.ok) {
+        console.error("Error al eliminar el usuario: ", response)
+      }
+      console.log("Usuario eliminado exitosamente")
+      router.push("/users")
   }
 
   return (
@@ -140,18 +134,18 @@ export function UserForm({ user }: UserFormProps) {
       <div className="flex items-center justify-between">
         <Button variant="outline" onClick={() => router.push("/users")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Users
+          Volver a Usuarios
         </Button>
         <div className="flex gap-2">
           {user && (
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={handleUserDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete User
+              Eliminar Usuario
             </Button>
           )}
           <Button onClick={form.handleSubmit(onSubmit)}>
             <Save className="mr-2 h-4 w-4" />
-            Save User
+            Guardar Usuario
           </Button>
         </div>
       </div>
@@ -159,8 +153,8 @@ export function UserForm({ user }: UserFormProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>User Avatar</CardTitle>
-            <CardDescription>Upload to Cloudinary</CardDescription>
+            <CardTitle>Avatar del Usuario</CardTitle>
+            <CardDescription>Subir a Cloudinary</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <Avatar className="h-32 w-32 mb-4">
@@ -181,7 +175,7 @@ export function UserForm({ user }: UserFormProps) {
             <Button variant="outline" asChild disabled={isUploading}>
               <label htmlFor="avatar-upload" className="cursor-pointer">
                 <Upload className="mr-2 h-4 w-4" />
-                {isUploading ? "Uploading..." : "Upload Avatar"}
+                {isUploading ? "Subiendo..." : "Subir Avatar"}
               </label>
             </Button>
           </CardContent>
@@ -190,8 +184,8 @@ export function UserForm({ user }: UserFormProps) {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>User Information</CardTitle>
-              <CardDescription>Enter user details</CardDescription>
+              <CardTitle>Información del Usuario</CardTitle>
+              <CardDescription>Introduce los detalles del usuario</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -202,9 +196,9 @@ export function UserForm({ user }: UserFormProps) {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Full Name</FormLabel>
+                          <FormLabel>Nombre Completo</FormLabel>
                           <FormControl>
-                            <Input placeholder="John Doe" {...field} />
+                            <Input placeholder="Juan Pérez" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -216,9 +210,9 @@ export function UserForm({ user }: UserFormProps) {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>Correo Electrónico</FormLabel>
                           <FormControl>
-                            <Input placeholder="email@example.com" {...field} />
+                            <Input placeholder="correo@ejemplo.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -231,13 +225,9 @@ export function UserForm({ user }: UserFormProps) {
                         name="password"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Password</FormLabel>
+                            <FormLabel>Contraseña</FormLabel>
                             <FormControl>
-                              <Input
-                                type="password"
-                                placeholder="••••••••"
-                                {...field}
-                              />
+                              <Input type="password" placeholder="••••••••" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -250,7 +240,7 @@ export function UserForm({ user }: UserFormProps) {
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone</FormLabel>
+                          <FormLabel>Teléfono</FormLabel>
                           <FormControl>
                             <Input placeholder="+1 234 567 890" {...field} />
                           </FormControl>
@@ -264,20 +254,17 @@ export function UserForm({ user }: UserFormProps) {
                       name="role"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Role</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
+                          <FormLabel>Rol</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select role" />
+                                <SelectValue placeholder="Seleccionar rol" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="vendor">Staff</SelectItem>
-                              <SelectItem value="customer">Customer</SelectItem>
+                              <SelectItem value="admin">Administrador</SelectItem>
+                              <SelectItem value="vendor">Personal</SelectItem>
+                              <SelectItem value="customer">Cliente</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -291,9 +278,9 @@ export function UserForm({ user }: UserFormProps) {
                     name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Address</FormLabel>
+                        <FormLabel>Dirección</FormLabel>
                         <FormControl>
-                          <Input placeholder="123 Main St" {...field} />
+                          <Input placeholder="Calle Principal 123" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -305,7 +292,7 @@ export function UserForm({ user }: UserFormProps) {
             <CardFooter className="flex justify-end">
               <Button onClick={form.handleSubmit(onSubmit)}>
                 <Save className="mr-2 h-4 w-4" />
-                Save User
+                Guardar Usuario
               </Button>
             </CardFooter>
           </Card>
