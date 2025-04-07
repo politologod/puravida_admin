@@ -9,10 +9,11 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { getUser, deleteUser } from "@/lib/api"
 import { useState, useEffect } from "react"
 import { toast } from "@/hooks/use-toast"
+import { add } from "date-fns"
 // ... existing code ...
 
 type User = {
-  id: string
+  id: number
   name: string
   email: string
   role: string
@@ -33,8 +34,15 @@ export default function UsersPage() {
       try {
         setIsLoading(true)
         const data = await getUser()
-        console.log('Datos recibidos:', data)
-        setUsers(data)
+        const parsedUsers = data.map((u: any) => ({
+          id: u.id_autoincrement,
+          name: u.name,
+          email: u.email,
+          role: u.role || "customer", 
+          phone: u.phone,
+          address: u.address,
+        }))
+        setUsers(parsedUsers)
         setError(null)
       } catch (err) {
         console.error('Error al obtener usuarios:', err)
@@ -51,6 +59,10 @@ export default function UsersPage() {
 
     fetchUsers()
   }, [])
+
+  useEffect(() => {
+    console.log("Usuarios actualizados:", users)
+  }, [users])
 
   const handleDelete = async (ids: string[]) => {
     try {
@@ -89,8 +101,8 @@ export default function UsersPage() {
       header: "Rol",
     },
     {
-      accessorKey: "status",
-      header: "Estado",
+      accessorKey: "phone",
+      header: "Telefono",
     },
     {
       id: "actions",

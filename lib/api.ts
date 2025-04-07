@@ -84,7 +84,7 @@ export const getUser = async () => {
 
 export const getUserById = async (id: string) => {
 	try {
-		const response = await api.get(`/user/${id}`);
+		const response = await api.get(`/users/${id}`);
 		return response.data;
 	} catch (error) {
 		if (axios.isAxiosError(error) && error.response) {

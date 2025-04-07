@@ -1,3 +1,6 @@
+"use client"
+import { useState, useEffect, use } from "react"
+import { useParams } from "next/navigation"
 import { SidebarNav } from "../../../components/sidebar-nav"
 import { Header } from "../../../components/header"
 import { Button } from "@/components/ui/button"
@@ -7,33 +10,37 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
+import { getUserById } from "@/lib/api"
 // This would normally fetch the user data from an API
-const getUserData = (id: string) => {
-  return {
-    id: id,
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "+1 (555) 123-4567",
-    address: "123 Main St, Anytown, USA",
-    role: "Customer",
-    status: "active",
-    joinDate: "January 15, 2025",
-    orders: 12,
-    lastActive: "2 hours ago",
-    avatar: "/placeholder.svg?height=128&width=128",
-    recentOrders: [
-      { id: "ORD-1042", date: "2025-03-30", items: 3, total: 42.97, status: "Delivered" },
-      { id: "ORD-1036", date: "2025-03-25", items: 2, total: 29.98, status: "Processing" },
-      { id: "ORD-1028", date: "2025-03-18", items: 1, total: 15.99, status: "Delivered" },
-    ],
-    notes: "Prefers delivery on weekends. Has water dispenser subscription.",
-  }
+interface User {
+  id?: string
+  name?: string
+  email?: string
+  phone?: string
+  address?: string
+  profilePic?: string
+  role?: string
 }
 
-export default function UserProfilePage({ params }: { params: { id: string } }) {
-  const user = getUserData(params.id)
+export default function UserProfilePage() {
+  const { id } = useParams<{ id: string }>();
+  const [user, setUser] = useState<User>({});
+  const gettingUser = async () => {
+    try {
+      const user = await getUserById(id);
+      setUser(user);
+      return user;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      return null;
+    }
+  };  
 
+  useEffect(() => {
+    if (id) {
+      gettingUser()
+    }
+  }, [id])
   return (
     <div className="flex h-screen bg-background">
       <SidebarNav />
@@ -49,9 +56,6 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
                 </a>
               </Button>
               <h1 className="text-2xl font-bold">User Profile</h1>
-              <Badge variant={user.status === "active" ? "default" : "secondary"}>
-                {user.status === "active" ? "Active" : "Inactive"}
-              </Badge>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" asChild>
@@ -71,19 +75,19 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
             <Card>
               <CardContent className="pt-6 flex flex-col items-center">
                 <Avatar className="h-32 w-32 mb-4">
-                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarImage src={user.profilePic} alt={user.name} />
                   <AvatarFallback className="text-4xl">
-                    {user.name.charAt(0)}
-                    {user.name.split(" ")[1]?.charAt(0)}
+                    {user.name?.charAt(0)}
+                    {user.name?.split(" ")[1]?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 <h2 className="text-2xl font-bold">{user.name}</h2>
                 <Badge
                   variant="outline"
                   className={
-                    user.role === "Admin"
+                    user.role === "admin"
                       ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 mt-2"
-                      : user.role === "Staff"
+                      : user.role === "vendor"
                         ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 mt-2"
                         : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 mt-2"
                   }
@@ -106,18 +110,6 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
                     <MapPin className="h-4 w-4 text-muted-foreground" />
                     <span>{user.address}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>Joined: {user.joinDate}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                    <span>Orders: {user.orders}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>Last active: {user.lastActive}</span>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -136,7 +128,7 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
                       <CardDescription>The user's most recent orders</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-4">
+                      {/*<div className="space-y-4">
                         {user.recentOrders.map((order) => (
                           <div
                             key={order.id}
@@ -165,7 +157,7 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
                             </div>
                           </div>
                         ))}
-                      </div>
+                      </div>*/}
 
                       <div className="mt-4 text-center">
                         <Button variant="outline" asChild>
@@ -183,7 +175,7 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="bg-muted rounded-lg p-4 text-center">
-                          <div className="text-3xl font-bold">{user.orders}</div>
+                          {/*<div className="text-3xl font-bold">{user.orders}</div>*/}
                           <div className="text-sm text-muted-foreground">Total Orders</div>
                         </div>
                         <div className="bg-muted rounded-lg p-4 text-center">
@@ -202,29 +194,11 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
                 <TabsContent value="notes" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Notes</CardTitle>
-                      <CardDescription>Customer notes and preferences</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p>{user.notes}</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
                       <CardTitle>Preferences</CardTitle>
                       <CardDescription>User's product and service preferences</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        <div>
-                          <h3 className="text-sm font-medium text-muted-foreground mb-2">Preferred Products</h3>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">5 Gallon Water Bottle</Badge>
-                            <Badge variant="secondary">Water Dispenser</Badge>
-                            <Badge variant="secondary">Alkaline Water</Badge>
-                          </div>
-                        </div>
 
                         <div>
                           <h3 className="text-sm font-medium text-muted-foreground mb-2">Delivery Preferences</h3>
