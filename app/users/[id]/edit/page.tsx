@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { SidebarNav } from "../../../../components/sidebar-nav"
 import { Header } from "../../../../components/header"
 import { UserForm } from "@/components/user-form"
-import { getUserById } from "@/lib/api"
+import { getUserById, updateUser } from "@/lib/api"
 import { useParams } from "next/navigation"
 
 
@@ -39,6 +39,12 @@ export default function EditUserPage() {
       gettingUser()
     }
   }, [id])
+
+
+  const handleUserUpdate = async (updatedUser: any, id: any) => {
+    const update = updateUser(id, updatedUser)
+    console.log("User updated:", update)
+  }
 
 
   return (

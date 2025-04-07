@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getUserById } from "@/lib/api"
+import { getUserById, deleteUser } from "@/lib/api"
 // This would normally fetch the user data from an API
 interface User {
   id?: number
@@ -52,6 +52,23 @@ export default function UserProfilePage() {
       gettingUser()
     }
   }, [id])
+
+  const handleDeleteUser = async () => {
+    try {
+      await deleteUser(id);
+      console.log("User deleted successfully");
+
+      // Redirect or show success message 
+      // For example, redirect to the users list page
+      window.location.href = "/users";
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      // Handle error (e.g., show error message)
+    }
+
+  }
+
+
   return (
     <div className="flex h-screen bg-background">
       <SidebarNav />
@@ -75,7 +92,7 @@ export default function UserProfilePage() {
                   Edit User
                 </Link>
               </Button>
-              <Button variant="destructive">
+              <Button variant="destructive" onClick={handleDeleteUser}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete User
               </Button>

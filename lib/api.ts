@@ -96,7 +96,7 @@ export const getUserById = async (id: string) => {
 
 export const deleteUser = async (id: string) => {
 	try {
-		const response = await api.delete(`/user/${id}`);
+		const response = await api.delete(`/users/${id}`);
 		return response.data;
 	} catch (error) {
 		if (axios.isAxiosError(error) && error.response) {
@@ -123,7 +123,7 @@ export const createUser = async (userData: {
 
 export const updateUser = async (id: string, userData: any) => {
     try {
-        const response = await api.put(`/user/${id}`, userData);
+        const response = await api.put(`/users/${id}`, userData);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
