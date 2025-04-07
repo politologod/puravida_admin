@@ -127,7 +127,7 @@ export default function UsersPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleDelete([user.id])}
+              onClick={() => handleDelete([user.id.toString()])}
             >
               <Trash2 className="h-4 w-4" />
             </Button>

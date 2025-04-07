@@ -1,23 +1,45 @@
+"use client"
+import { useEffect, useState } from "react"
 import { SidebarNav } from "../../../../components/sidebar-nav"
 import { Header } from "../../../../components/header"
 import { UserForm } from "@/components/user-form"
+import { getUserById } from "@/lib/api"
+import { useParams } from "next/navigation"
 
-// This would normally fetch the user data from an API
-const getUserData = (id: string) => {
-  return {
-    id: id,
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "+1 (555) 123-4567",
-    address: "123 Main St, Anytown, USA",
-    role: "Customer",
-    status: "active",
-    notes: "Prefers delivery on weekends. Has water dispenser subscription.",
+
+export default function EditUserPage() {
+  const { id } = useParams<{ id: string }>();
+  //const { id } = useParams() as { id: string | undefined };
+  const [userData, setUserData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const params = useParams();
+  console.log('params:', params); 
+  
+  
+  // 👈 DEBUG CRÍTICO
+  const gettingUser = async () => {
+    try {
+      setLoading(true)
+      if (!id) {
+        throw new Error("User ID is undefined");
+      }
+      const user = await getUserById(id);
+      setUserData(user)
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching user data:", error)
+      setError("Error fetching user data")
+      setLoading(false)
+    }
   }
-}
 
-export default function EditUserPage({ params }: { params: { id: string } }) {
-  const userData = getUserData(params.id)
+  useEffect(() => {
+    if (id) {
+      gettingUser()
+    }
+  }, [id])
+
 
   return (
     <div className="flex h-screen bg-background">
@@ -30,10 +52,11 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
             <p className="text-muted-foreground">Update user information</p>
           </div>
 
-          <UserForm user={userData} />
+          {loading && <p className="text-muted-foreground">Loading...</p>}
+          {error && <p className="text-red-500">{error}</p>}
+          {userData && <UserForm user={userData} />}
         </div>
       </div>
     </div>
   )
 }
-

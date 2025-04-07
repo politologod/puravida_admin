@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect, use } from "react"
+import Link from "next/link"
 import { useParams } from "next/navigation"
 import { SidebarNav } from "../../../components/sidebar-nav"
 import { Header } from "../../../components/header"
@@ -13,10 +14,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getUserById } from "@/lib/api"
 // This would normally fetch the user data from an API
 interface User {
-  id?: string
+  id?: number
   name?: string
-  email?: string
-  phone?: string
+    email?: string
+    phone?: string
   address?: string
   profilePic?: string
   role?: string
@@ -28,7 +29,17 @@ export default function UserProfilePage() {
   const gettingUser = async () => {
     try {
       const user = await getUserById(id);
-      setUser(user);
+      const parsedUser = {
+        id: user.id_autoincrement,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        profilePic: user.profilePic,
+        role: user.role || "customer",
+      };
+      setUser(parsedUser);
+      console.log("User data:", parsedUser);
       return user;
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -59,10 +70,10 @@ export default function UserProfilePage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" asChild>
-                <a href={`/users/${user.id}/edit`}>
+                <Link href={`/users/${user.id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit User
-                </a>
+                </Link>
               </Button>
               <Button variant="destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
