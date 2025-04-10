@@ -1,4 +1,5 @@
 "use client"
+import { useEffect, useState } from "react"
 import { SidebarNav } from "../../components/sidebar-nav"
 import { Header } from "../../components/header"
 import { Button } from "@/components/ui/button"
@@ -18,123 +19,53 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/use-toast"
+import { getProducts } from "@/lib/api" // Import your API function
 
 type Product = {
-  id: string
+  id: number | string
   name: string
-  category: string
-  stock: number | string
-  price: number
-  availableInPos: boolean
-  availableOnline: boolean
-  image: string
+  description: string
+  price: string | number
+  stock: number
+  imageUrl?: string
+  metadata?: {
+    type?: string
+    capacity?: string
+    material?: string
+    [key: string]: any
+  }
+  createdAt: string
+  updatedAt: string
+  Categories?: any[]
 }
 
 export default function ProductsPage() {
   const router = useRouter()
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const products: Product[] = [
-    {
-      id: "P001",
-      name: "Puravida 5 Gallon Water Bottle",
-      category: "Refillable",
-      stock: 45,
-      price: 15.99,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P002",
-      name: "Puravida 1 Gallon Purified Water",
-      category: "Bottled",
-      stock: 120,
-      price: 4.99,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P003",
-      name: "Puravida Water Refill Service (5 Gallon)",
-      category: "Service",
-      stock: "Unlimited",
-      price: 8.99,
-      availableInPos: true,
-      availableOnline: false,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P004",
-      name: "Puravida Spring Water 24-Pack",
-      category: "Bottled",
-      stock: 78,
-      price: 12.99,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P005",
-      name: "Water Dispenser - Floor Standing",
-      category: "Accessory",
-      stock: 12,
-      price: 89.99,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P006",
-      name: "Puravida Alkaline Water 1L (6-Pack)",
-      category: "Bottled",
-      stock: 65,
-      price: 10.59,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P007",
-      name: "Water Dispenser Cleaning Service",
-      category: "Service",
-      stock: "Unlimited",
-      price: 24.99,
-      availableInPos: true,
-      availableOnline: false,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P008",
-      name: "Puravida Mineral Water 500ml (24-Pack)",
-      category: "Bottled",
-      stock: 92,
-      price: 14.99,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P009",
-      name: "Water Bottle Carrier",
-      category: "Accessory",
-      stock: 5,
-      price: 19.99,
-      availableInPos: true,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: "P010",
-      name: "Puravida Sparkling Water 12-Pack",
-      category: "Bottled",
-      stock: 0,
-      price: 16.99,
-      availableInPos: false,
-      availableOnline: true,
-      image: "/placeholder.svg?height=40&width=40",
-    },
-  ]
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true)
+        const data = await getProducts()
+        setProducts(data.products || [])
+        setError(null)
+      } catch (err) {
+        setError("Failed to load products")
+        toast({
+          title: "Error",
+          description: "Failed to load products. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
 
   const handleDelete = (ids: string[]) => {
     toast({
@@ -142,6 +73,17 @@ export default function ProductsPage() {
       description: `${ids.length} product(s) have been deleted.`,
       variant: "destructive",
     })
+  }
+
+  // Function to determine category based on metadata
+  const determineCategory = (product: Product) => {
+    if (product.metadata?.type) {
+      return product.metadata.type
+    }
+    if (product.metadata?.capacity) {
+      return `${product.metadata.capacity} Container`
+    }
+    return "Uncategorized"
   }
 
   const columns: ColumnDef<Product>[] = [
@@ -165,11 +107,11 @@ export default function ProductsPage() {
       enableHiding: false,
     },
     {
-      accessorKey: "image",
+      accessorKey: "imageUrl",
       header: "Image",
       cell: ({ row }) => (
         <img
-          src={row.getValue("image") || "/placeholder.svg"}
+          src={row.getValue("imageUrl") || "/placeholder.svg?height=40&width=40"}
           alt={row.getValue("name")}
           className="w-10 h-10 rounded-md object-cover"
         />
@@ -181,26 +123,25 @@ export default function ProductsPage() {
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-medium">{row.getValue("name")}</span>
-          <span className="text-xs text-muted-foreground">{row.original.id}</span>
+          <span className="text-xs text-muted-foreground">ID: {row.original.id}</span>
         </div>
       ),
     },
     {
-      accessorKey: "category",
+      id: "category",
       header: "Category",
+      accessorFn: row => determineCategory(row),
       cell: ({ row }) => {
-        const category = row.getValue("category") as string
+        const category = determineCategory(row.original)
         return (
           <Badge
             variant="outline"
             className={
-              category === "Bottled"
+              category.includes("Agua")
                 ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                : category === "Refillable"
+                : category.includes("L")
                   ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                  : category === "Service"
-                    ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-                    : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
             }
           >
             {category}
@@ -212,21 +153,19 @@ export default function ProductsPage() {
       accessorKey: "stock",
       header: "Stock",
       cell: ({ row }) => {
-        const stock = row.getValue("stock")
-        return typeof stock === "number" ? (
+        const stock = row.getValue("stock") as number
+        return (
           <span
             className={
               stock === 0
                 ? "text-red-500 dark:text-red-400"
-                : (stock as number) < 10
+                : stock < 10
                   ? "text-amber-500 dark:text-amber-400"
                   : "text-green-500 dark:text-green-400"
             }
           >
             {stock}
           </span>
-        ) : (
-          <span>{stock}</span>
         )
       },
     },
@@ -234,32 +173,12 @@ export default function ProductsPage() {
       accessorKey: "price",
       header: "Price",
       cell: ({ row }) => {
-        const price = Number.parseFloat(row.getValue("price"))
+        const price = parseFloat(row.getValue("price") as string)
         const formatted = new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD",
         }).format(price)
         return <span className="font-medium">{formatted}</span>
-      },
-    },
-    {
-      id: "availability",
-      header: "Availability",
-      cell: ({ row }) => {
-        return (
-          <div className="flex flex-col gap-1">
-            {row.original.availableInPos && (
-              <Badge variant="secondary" className="w-fit text-xs">
-                POS
-              </Badge>
-            )}
-            {row.original.availableOnline && (
-              <Badge variant="secondary" className="w-fit text-xs">
-                Online
-              </Badge>
-            )}
-          </div>
-        )
       },
     },
     {
@@ -287,7 +206,7 @@ export default function ProductsPage() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => handleDelete([product.id])}
+                onClick={() => handleDelete([product.id.toString()])}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
@@ -330,10 +249,24 @@ export default function ProductsPage() {
             <ProductFilters />
           </div>
 
-          <DataTable columns={columns} data={products} searchKey="name" onDelete={handleDelete} />
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          ) : (
+            <DataTable 
+              columns={columns} 
+              data={products} 
+              searchKey="name" 
+              onDelete={handleDelete} 
+            />
+          )}
         </div>
       </div>
     </div>
   )
 }
-

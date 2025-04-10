@@ -132,3 +132,29 @@ export const updateUser = async (id: string, userData: any) => {
         throw new Error("Failed to update user");
     }
 }
+
+
+export const getProducts = async () => {
+	try {
+		const response = await api.get("/products");
+		console.log("Datos de productos:", response.data);	
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to get products");
+		}
+		throw new Error("Failed to get products");
+	}
+}
+
+export const getProductsById = async (id: string) => {
+	try {
+		const response = await api.get(`/products/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to get product");
+		}
+		throw new Error("Failed to get product");
+	}
+}
