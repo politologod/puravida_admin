@@ -158,3 +158,28 @@ export const getProductsById = async (id: string) => {
 		throw new Error("Failed to get product");
 	}
 }
+
+
+export const updateProducts = async (id: string, productData: any) => {
+	try {
+		const response = await api.put(`/products/${id}`, productData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to update product");
+		}
+		throw new Error("Failed to update product");
+	}
+}
+export const deleteProducts = async (id: string) => {
+	try{
+		const response = await api.delete(`/products/${id}`);
+		return response.data;
+	}
+	catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to delete product");
+		}
+		throw new Error("Failed to delete product");
+	}
+}
