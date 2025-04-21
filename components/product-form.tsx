@@ -191,21 +191,24 @@ export function ProductForm({ product }: ProductFormProps) {
         description: "Guardando información del producto...",
       });
       
+      // Convertir la categoría a categoryIds (array de números)
+      const categoryIds = data.category ? [parseInt(data.category)] : [];
+      
       // Incluir la información de impuestos
       const formData = {
         ...data,
         taxes: productTaxes,
+        categoryIds, // Agregar categoryIds como array
         // Las imágenes ya están subidas mediante los endpoints específicos
         imageUrl: realImages.length > 0 ? realImages[0].url : undefined,
       };
       
+      // Eliminar la propiedad category para no enviarla junto con categoryIds
+      delete formData.category;
+      
       if (product?.id) {
         // Actualizar producto existente
-        updateProduct(product.id.toString(), {
-          ...formData,
-          // Las imágenes ya están subidas mediante los endpoints específicos
-          imageUrl: realImages.length > 0 ? realImages[0].url : undefined,
-        }).then(() => {
+        updateProduct(product.id.toString(), formData).then(() => {
           toast({
             title: "Producto actualizado",
             description: "El producto ha sido actualizado correctamente.",
@@ -221,11 +224,7 @@ export function ProductForm({ product }: ProductFormProps) {
         })
       } else {
         // Crear nuevo producto
-        createProduct({
-          ...formData,
-          // Pasar solo las URLs de las imágenes ya que se subieron previamente
-          imageUrl: realImages.length > 0 ? realImages[0].url : undefined,
-        }).then((response) => {
+        createProduct(formData).then((response) => {
           toast({
             title: "Producto guardado",
             description: "El producto ha sido guardado correctamente.",

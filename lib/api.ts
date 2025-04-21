@@ -227,6 +227,9 @@ export const getProductById = async (id: string) => {
 	}
 };
 
+// Alias para mantener compatibilidad con el código existente
+export const getProductsById = getProductById;
+
 export const createProduct = async (productData: {
 	name: string;
 	description?: string;
@@ -251,15 +254,37 @@ export const createProduct = async (productData: {
 
 export const updateProduct = async (id: string, productData: any) => {
 	try {
+		console.log("API: Actualizando producto con ID:", id);
+		console.log("API: Datos enviados para actualización:", productData);
+		
+		// Transformar categories a categoryIds si existe
+		if (productData.categories && Array.isArray(productData.categories)) {
+			// Convertir cualquier objeto a ID simple y asegurar que sean números
+			productData.categoryIds = productData.categories.map((cat: any) => 
+				typeof cat === 'object' && cat.id ? Number(cat.id) : Number(cat)
+			);
+			
+			// Eliminar el campo categories ya que usaremos categoryIds
+			delete productData.categories;
+			
+			console.log("API: Enviando categoryIds formateados:", productData.categoryIds);
+		}
+		
 		const response = await api.put(`/products/${id}`, productData);
+		console.log("API: Respuesta de actualización de producto:", response.status);
 		return response.data;
 	} catch (error) {
+		console.error("API: Error al actualizar producto:", error);
 		if (axios.isAxiosError(error) && error.response) {
+			console.error("API: Detalles del error:", error.response.data);
 			throw new Error(error.response.data?.message || "Failed to update product");
 		}
 		throw new Error("Failed to update product");
 	}
 };
+
+// Alias para mantener compatibilidad con el código existente
+export const updateProducts = updateProduct;
 
 export const deleteProduct = async (id: string) => {
 	try {
@@ -588,6 +613,20 @@ export const updateProductTax = async (
 	}
 };
 
+// Función para obtener los impuestos asociados a un producto
+export const getProductTaxes = async (productId: string | number) => {
+	try {
+		const response = await api.get(`/taxes/products/${productId}/taxes`);
+		console.log("Datos de impuestos del producto:", response.data);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener impuestos del producto");
+		}
+		throw new Error("Error al obtener impuestos del producto");
+	}
+};
+
 // Funciones para obtener estadísticas y métricas del sistema
 export const getDashboardStats = async () => {
 	try {
@@ -709,5 +748,73 @@ export const getSystemMetrics = async () => {
 			throw new Error(error.response.data?.message || "Error al obtener métricas del sistema");
 		}
 		throw new Error("Error al obtener métricas del sistema");
+	}
+};
+
+// Funciones para manejar categorías
+export const getAllCategories = async () => {
+	try {
+		const response = await api.get("/categories");
+		console.log("Datos de categorías:", response.data);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener categorías");
+		}
+		throw new Error("Error al obtener categorías");
+	}
+};
+
+export const getCategoryById = async (id: string) => {
+	try {
+		const response = await api.get(`/categories/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener categoría");
+		}
+		throw new Error("Error al obtener categoría");
+	}
+};
+
+export const createCategory = async (categoryData: {
+	name: string;
+	description?: string;
+}) => {
+	try {
+		const response = await api.post("/categories", categoryData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al crear categoría");
+		}
+		throw new Error("Error al crear categoría");
+	}
+};
+
+export const updateCategory = async (id: string, categoryData: {
+	name?: string;
+	description?: string;
+}) => {
+	try {
+		const response = await api.put(`/categories/${id}`, categoryData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar categoría");
+		}
+		throw new Error("Error al actualizar categoría");
+	}
+};
+
+export const deleteCategory = async (id: string) => {
+	try {
+		const response = await api.delete(`/categories/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al eliminar categoría");
+		}
+		throw new Error("Error al eliminar categoría");
 	}
 };

@@ -18,11 +18,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/use-toast"
-import { getAllProducts, deleteProduct } from "@/lib/api"
+import { getAllProducts, deleteProduct, getAllCategories, createCategory, updateCategory, deleteCategory } from "@/lib/api"
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 type Product = {
   id: number
@@ -35,6 +40,13 @@ type Product = {
   image?: string
   availableInPos?: boolean
   availableOnline?: boolean
+  categories: Category[]
+}
+
+type Category = {
+  id: string | number
+  name: string
+  description?: string
 }
 
 function ProductStats() {
@@ -58,6 +70,7 @@ function ProductStats() {
             availableInPos: p.availableInPos || false,
             availableOnline: p.availableOnline || false,
             image: p.images && p.images.length > 0 ? p.images[0] : "/placeholder.svg?height=40&width=40",
+            categories: p.Categories || [],
           })))
         } else {
           setProducts([])
@@ -148,69 +161,192 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("products")
+  const [categories, setCategories] = useState<Category[]>([])
+  const [newCategory, setNewCategory] = useState({ name: "", description: "" })
+  const [editCategory, setEditCategory] = useState<Category | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [currentFilters, setCurrentFilters] = useState(null)
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setIsLoading(true)
-        const response = await getAllProducts()
-        console.log("Respuesta de productos:", response)
-        
-        // Determinar dónde están los datos de productos
-        let productsData = response;
-        
-        // Si la respuesta es un objeto con una propiedad que contiene los productos
-        if (response && typeof response === 'object' && !Array.isArray(response)) {
-          // Buscar propiedades comunes donde podrían estar los productos
-          if (response.data) productsData = response.data;
-          else if (response.products) productsData = response.products;
-          else if (response.items) productsData = response.items;
-          else if (response.results) productsData = response.results;
+  // Definir fetchProducts dentro del componente pero fuera del useEffect
+  const fetchProducts = async (filters: any = null) => {
+    try {
+      setIsLoading(true)
+      const response = await getAllProducts()
+      console.log("Respuesta de productos:", response)
+      
+      // Determinar dónde están los datos de productos
+      let productsData = response;
+      
+      // Si la respuesta es un objeto con una propiedad que contiene los productos
+      if (response && typeof response === 'object' && !Array.isArray(response)) {
+        // Buscar propiedades comunes donde podrían estar los productos
+        if (response.data) productsData = response.data;
+        else if (response.products) productsData = response.products;
+        else if (response.items) productsData = response.items;
+        else if (response.results) productsData = response.results;
+      }
+      
+      // Asegurarse de que productsData sea un array
+      if (!Array.isArray(productsData)) {
+        console.error("Los datos recibidos no son un array:", productsData);
+        setProducts([]);
+        setError('Formato de datos no válido');
+        return;
+      }
+      
+      if (productsData.length === 0) {
+        setProducts([])
+        setError(null)
+        return
+      }
+      
+      const parsedProducts = productsData.map((p: any) => ({
+        id: p.id_autoincrement || p.id || Math.random().toString(36).substring(2, 9),
+        name: p.name || "Sin nombre",
+        category: p.category || "Sin categoría",
+        price: p.price || 0,
+        stock: p.stock || 0,
+        sku: p.sku || "",
+        status: p.status || "active",
+        availableInPos: p.metadata?.availableInPos || false,
+        availableOnline: p.metadata?.availableOnline || false,
+        image: p.imageUrl || "/placeholder.svg?height=40&width=40",
+        categories: p.Categories || [],
+      }))
+      
+      let filteredProducts = [...parsedProducts];
+      
+      // Aplicar filtros si existen
+      if (filters) {
+        // Filtrar por categoría
+        if (filters.category && filters.category !== 'all') {
+          filteredProducts = filteredProducts.filter(product => {
+            // Verificar si el producto tiene categorías y si alguna coincide con el filtro
+            if (product.categories && product.categories.length > 0) {
+              return product.categories.some((cat: any) => cat.id.toString() === filters.category);
+            }
+            return product.category === filters.category;
+          });
         }
         
-        // Asegurarse de que productsData sea un array
-        if (!Array.isArray(productsData)) {
-          console.error("Los datos recibidos no son un array:", productsData);
-          setProducts([]);
-          setError('Formato de datos no válido');
+        // Filtrar por disponibilidad
+        if (filters.availability && filters.availability !== 'all') {
+          if (filters.availability === 'pos') {
+            filteredProducts = filteredProducts.filter(p => p.availableInPos);
+          } else if (filters.availability === 'online') {
+            filteredProducts = filteredProducts.filter(p => p.availableOnline);
+          }
+        }
+        
+        // Filtrar por inventario
+        if (filters.inventory && filters.inventory !== 'all') {
+          if (filters.inventory === 'low') {
+            filteredProducts = filteredProducts.filter(p => p.stock > 0 && p.stock < 10);
+          } else if (filters.inventory === 'out') {
+            filteredProducts = filteredProducts.filter(p => p.stock === 0);
+          }
+        }
+        
+        // Ordenar productos
+        if (filters.sort) {
+          switch (filters.sort) {
+            case 'name-asc':
+              filteredProducts.sort((a, b) => a.name.localeCompare(b.name));
+              break;
+            case 'name-desc':
+              filteredProducts.sort((a, b) => b.name.localeCompare(a.name));
+              break;
+            case 'price-asc':
+              filteredProducts.sort((a, b) => Number(a.price) - Number(b.price));
+              break;
+            case 'price-desc':
+              filteredProducts.sort((a, b) => Number(b.price) - Number(a.price));
+              break;
+            case 'stock-asc':
+              filteredProducts.sort((a, b) => a.stock - b.stock);
+              break;
+            case 'stock-desc':
+              filteredProducts.sort((a, b) => b.stock - a.stock);
+              break;
+          }
+        }
+      }
+      
+      setProducts(filteredProducts)
+      setError(null)
+    } catch (err) {
+      console.error('Error al obtener productos:', err)
+      setError('Error al cargar los productos')
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los productos",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleFilterChange = (filters: any) => {
+    // Prevenir procesar filtros idénticos para evitar ciclos infinitos
+    if (JSON.stringify(filters) === JSON.stringify(currentFilters)) {
+      return;
+    }
+    
+    // Establecer los nuevos filtros
+    setCurrentFilters(filters);
+    
+    // Aplicar filtros con un pequeño retraso para evitar múltiples llamadas
+    const timeoutId = setTimeout(() => {
+      fetchProducts(filters);
+    }, 300);
+    
+    // Limpiar el timeout en la cleanup function
+    return () => clearTimeout(timeoutId);
+  }
+
+  useEffect(() => {
+    // Ahora solo llamamos a fetchProducts
+    fetchProducts()
+    
+    // Fetch categories
+    const fetchCategories = async () => {
+      try {
+        const response = await getAllCategories()
+        console.log("Respuesta de categorías:", response)
+        
+        // Determinar dónde están los datos de categorías
+        let categoriesData = response;
+        
+        // Si la respuesta es un objeto con una propiedad que contiene las categorías
+        if (response && typeof response === 'object' && !Array.isArray(response)) {
+          // Buscar propiedades comunes donde podrían estar las categorías
+          if (response.data) categoriesData = response.data;
+          else if (response.categories) categoriesData = response.categories;
+          else if (response.items) categoriesData = response.items;
+          else if (response.results) categoriesData = response.results;
+        }
+        
+        // Asegurarse de que categoriesData sea un array
+        if (!Array.isArray(categoriesData)) {
+          console.error("Los datos recibidos no son un array:", categoriesData);
+          setCategories([]);
           return;
         }
         
-        if (productsData.length === 0) {
-          setProducts([])
-          setError(null)
-          return
-        }
-        
-        const parsedProducts = productsData.map((p: any) => ({
-          id: p.id_autoincrement || p.id || Math.random().toString(36).substring(2, 9),
-          name: p.name || "Sin nombre",
-          category: p.category || "Sin categoría",
-          price: p.price || 0,
-          stock: p.stock || 0,
-          sku: p.sku || "",
-          status: p.status || "active",
-          availableInPos: p.availableInPos || false,
-          availableOnline: p.availableOnline || false,
-          image: p.images && p.images.length > 0 ? p.images[0] : "/placeholder.svg?height=40&width=40",
-        }))
-        
-        setProducts(parsedProducts)
-        setError(null)
+        setCategories(categoriesData)
       } catch (err) {
-        console.error('Error al obtener productos:', err)
-        setError('Error al cargar los productos')
+        console.error('Error al obtener categorías:', err)
         toast({
           title: "Error",
-          description: "No se pudieron cargar los productos",
+          description: "No se pudieron cargar las categorías",
           variant: "destructive",
         })
-      } finally {
-        setIsLoading(false)
       }
     }
 
-    fetchProducts()
+    fetchCategories()
   }, [])
 
   const handleDelete = async (ids: string[]) => {
@@ -251,6 +387,7 @@ export default function ProductsPage() {
         availableInPos: p.availableInPos || false,
         availableOnline: p.availableOnline || false,
         image: p.images && p.images.length > 0 ? p.images[0] : "/placeholder.svg?height=40&width=40",
+        categories: p.Categories || [],
       }))
       setProducts(parsedProducts)
       
@@ -269,14 +406,108 @@ export default function ProductsPage() {
     }
   }
 
+  const handleSaveCategory = async () => {
+    try {
+      if (editCategory) {
+        // Actualizar categoría existente
+        await updateCategory(editCategory.id.toString(), {
+          name: newCategory.name,
+          description: newCategory.description
+        })
+        toast({
+          title: "Categoría actualizada",
+          description: "La categoría ha sido actualizada exitosamente",
+        })
+      } else {
+        // Crear nueva categoría
+        await createCategory({
+          name: newCategory.name,
+          description: newCategory.description
+        })
+        toast({
+          title: "Categoría creada",
+          description: "La categoría ha sido creada exitosamente",
+        })
+      }
+      
+      // Actualizar lista de categorías
+      const response = await getAllCategories()
+      let categoriesData = response;
+      if (response && typeof response === 'object' && !Array.isArray(response)) {
+        if (response.data) categoriesData = response.data;
+        else if (response.categories) categoriesData = response.categories;
+        else if (response.items) categoriesData = response.items;
+        else if (response.results) categoriesData = response.results;
+      }
+      
+      if (Array.isArray(categoriesData)) {
+        setCategories(categoriesData);
+      }
+      
+      // Limpiar formulario
+      setNewCategory({ name: "", description: "" })
+      setEditCategory(null)
+      setIsDialogOpen(false)
+    } catch (err) {
+      console.error('Error al guardar categoría:', err)
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la categoría",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditCategory = (category: Category) => {
+    setEditCategory(category)
+    setNewCategory({
+      name: category.name,
+      description: category.description || ""
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDeleteCategory = async (id: string | number) => {
+    try {
+      await deleteCategory(id.toString())
+      
+      // Actualizar lista de categorías
+      const response = await getAllCategories()
+      let categoriesData = response;
+      if (response && typeof response === 'object' && !Array.isArray(response)) {
+        if (response.data) categoriesData = response.data;
+        else if (response.categories) categoriesData = response.categories;
+        else if (response.items) categoriesData = response.items;
+        else if (response.results) categoriesData = response.results;
+      }
+      
+      if (Array.isArray(categoriesData)) {
+        setCategories(categoriesData);
+      }
+      
+      toast({
+        title: "Categoría eliminada",
+        description: "La categoría ha sido eliminada exitosamente",
+        variant: "destructive",
+      })
+    } catch (err) {
+      console.error('Error al eliminar categoría:', err)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la categoría",
+        variant: "destructive",
+      })
+    }
+  }
+
   const columns: ColumnDef<Product>[] = [
     {
       id: "select",
       header: ({ table }) => (
         <Checkbox
-          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+          checked={table.getIsAllPageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Seleccionar todo"
+          aria-label="Seleccionar todos"
         />
       ),
       cell: ({ row }) => (
@@ -290,96 +521,134 @@ export default function ProductsPage() {
       enableHiding: false,
     },
     {
-      accessorKey: "image",
-      header: "Imagen",
+      accessorKey: "name",
+      header: "Nombre",
       cell: ({ row }) => (
-        <img
-          src={row.getValue("image") || "/placeholder.svg"}
-          alt={row.getValue("name")}
-          className="w-10 h-10 rounded-md object-cover"
-        />
+        <div className="flex items-center space-x-3">
+          <img 
+            src={row.original.image || "/placeholder.svg?height=40&width=40"} 
+            alt={row.original.name} 
+            width={40} 
+            height={40} 
+            className="rounded-md object-cover border"
+          />
+          <span className="line-clamp-2">{row.original.name}</span>
+        </div>
       ),
     },
     {
-      accessorKey: "name",
-      header: "Nombre",
-    },
-    {
-      accessorKey: "category",
-      header: "Categoría",
-      cell: ({ row }) => {
-        const category = row.getValue("category") as string
-        return (
-          <Badge
-            variant="outline"
-            className={
-              category === "Bottled"
-                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                : category === "Refillable"
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                  : category === "Service"
-                    ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-                    : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-            }
-          >
-            {category}
-          </Badge>
-        )
-      },
-    },
-    {
-      accessorKey: "stock",
-      header: "Stock",
-      cell: ({ row }) => {
-        const stock = row.getValue("stock")
-        return typeof stock === "number" ? (
-          <span
-            className={
-              stock === 0
-                ? "text-red-500 dark:text-red-400"
-                : (stock as number) < 10
-                  ? "text-amber-500 dark:text-amber-400"
-                  : "text-green-500 dark:text-green-400"
-            }
-          >
-            {stock}
-          </span>
-        ) : (
-          <span className="text-red-500 dark:text-red-400">N/A</span>
-        )
-      },
+      accessorKey: "sku",
+      header: "SKU",
     },
     {
       accessorKey: "price",
       header: "Precio",
       cell: ({ row }) => {
-        return formatPrice(row.original.price)
+        const price = parseFloat(row.original.price.toString())
+        const formatted = formatPrice(price)
+        return <div>{formatted}</div>
       },
     },
     {
-      id: "availability",
-      header: "Disponibilidad",
+      accessorKey: "stock",
+      header: "Inventario",
       cell: ({ row }) => {
+        const stock = row.original.stock
+        const bgClass = stock === 0
+          ? "bg-red-100 text-red-800"
+          : stock < 10
+            ? "bg-yellow-100 text-yellow-800"
+            : "bg-green-100 text-green-800"
+        
         return (
-          <div className="flex flex-col gap-1">
-            {row.original.availableInPos && (
-              <Badge variant="secondary" className="w-fit text-xs">
-                POS
+          <Badge variant="outline" className={`${bgClass} font-medium`}>
+            {stock}
+          </Badge>
+        )
+      }
+    },
+    {
+      accessorKey: "categories",
+      header: "Categorías",
+      cell: ({ row }) => {
+        const categories = row.original.categories || []
+        if (categories.length === 0) {
+          return <span className="text-muted-foreground text-sm">Sin categoría</span>
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {categories.slice(0, 2).map((category, i) => (
+              <Badge key={i} variant="outline" className="bg-blue-50 text-blue-800">
+                {category.name}
               </Badge>
-            )}
-            {row.original.availableOnline && (
-              <Badge variant="secondary" className="w-fit text-xs">
-                Online
-              </Badge>
+            ))}
+            {categories.length > 2 && (
+              <Badge variant="outline">+{categories.length - 2}</Badge>
             )}
           </div>
         )
+      }
+    },
+    {
+      id: "actions",
+      header: "Acciones",
+      cell: ({ row }) => {
+        const product = row.original
+        
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Abrir menú</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/products/${product.id}`)}
+                  className="cursor-pointer"
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Ver detalles
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/products/${product.id}/edit`)}
+                  className="cursor-pointer"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => handleDelete([product.id.toString()])}
+                  className="cursor-pointer text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
       },
+    }
+  ]
+
+  const categoryColumns: ColumnDef<Category>[] = [
+    {
+      accessorKey: "name",
+      header: "Nombre",
+    },
+    {
+      accessorKey: "description",
+      header: "Descripción",
     },
     {
       id: "actions",
       cell: ({ row }) => {
-        const product = row.original
+        const category = row.original
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -390,18 +659,14 @@ export default function ProductsPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => router.push(`/products/${product.id}`)}>
-                <Eye className="mr-2 h-4 w-4" />
-                Ver
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/products/${product.id}/edit`)}>
+              <DropdownMenuItem onClick={() => handleEditCategory(category)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Editar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => handleDelete([product.id.toString()])}
+                onClick={() => handleDeleteCategory(category.id)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
@@ -422,7 +687,7 @@ export default function ProductsPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold">Productos</h1>
-              <p className="text-muted-foreground">Administra tu inventario y productos de e-commerce</p>
+              <p className="text-muted-foreground">Administra tu inventario, productos y categorías</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex items-center gap-2">
@@ -444,11 +709,77 @@ export default function ProductsPage() {
             <ProductStats />
           </div>
 
-          <div className="space-y-4 mb-6">
-            <ProductFilters />
+          <div className="mb-6">
+            <ProductFilters onFilterChange={handleFilterChange} />
           </div>
 
-          <DataTable columns={columns} data={products} searchKey="name" onDelete={handleDelete} />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-2 mb-4">
+              <TabsTrigger value="products">Productos</TabsTrigger>
+              <TabsTrigger value="categories">Categorías</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="products">
+              <div className="space-y-4 mb-6">
+                {/* Eliminando el duplicado de ProductFilters */}
+              </div>
+              <DataTable columns={columns} data={products} searchKey="name" onDelete={handleDelete} />
+            </TabsContent>
+
+            <TabsContent value="categories">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Gestión de Categorías</h2>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={() => {
+                      setEditCategory(null)
+                      setNewCategory({ name: "", description: "" })
+                    }}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Nueva Categoría
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editCategory ? "Editar Categoría" : "Nueva Categoría"}</DialogTitle>
+                      <DialogDescription>
+                        {editCategory ? "Actualiza los detalles de la categoría" : "Añade una nueva categoría para tus productos"}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="name">Nombre</Label>
+                        <Input
+                          id="name"
+                          value={newCategory.name}
+                          onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                          placeholder="Ej: Agua Embotellada"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="description">Descripción</Label>
+                        <Textarea
+                          id="description"
+                          value={newCategory.description}
+                          onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                          placeholder="Descripción breve de la categoría"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                      <Button onClick={handleSaveCategory}>{editCategory ? "Actualizar" : "Crear"}</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <DataTable
+                columns={categoryColumns}
+                data={categories}
+                searchKey="name"
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

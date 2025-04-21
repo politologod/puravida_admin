@@ -64,8 +64,8 @@ export function DataTable<TData, TValue>({ columns, data, searchKey, onDelete }:
 
     if (selectedIds.length === 0) {
       toast({
-        title: "No items selected",
-        description: "Please select items to delete.",
+        title: "No hay elementos seleccionados",
+        description: "Por favor selecciona elementos para eliminar.",
         variant: "destructive",
       })
       return
@@ -83,7 +83,7 @@ export function DataTable<TData, TValue>({ columns, data, searchKey, onDelete }:
         <div className="flex items-center gap-2">
           {searchKey && (
             <Input
-              placeholder={`Search...`}
+              placeholder="Buscar..."
               value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
               onChange={(event) => table.getColumn(searchKey)?.setFilterValue(event.target.value)}
               className="max-w-sm"
@@ -94,13 +94,13 @@ export function DataTable<TData, TValue>({ columns, data, searchKey, onDelete }:
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
             <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="h-8 gap-1">
               <Trash2 className="h-4 w-4" />
-              Delete Selected ({table.getFilteredSelectedRowModel().rows.length})
+              Eliminar Seleccionados ({table.getFilteredSelectedRowModel().rows.length})
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1">
-                Columns <ChevronDown className="h-4 w-4" />
+                Columnas <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -150,7 +150,7 @@ export function DataTable<TData, TValue>({ columns, data, searchKey, onDelete }:
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  No hay resultados.
                 </TableCell>
               </TableRow>
             )}
@@ -159,8 +159,8 @@ export function DataTable<TData, TValue>({ columns, data, searchKey, onDelete }:
       </div>
       <div className="flex items-center justify-end space-x-2">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
-          selected.
+          {table.getFilteredSelectedRowModel().rows.length} de {table.getFilteredRowModel().rows.length} fila(s)
+          seleccionada(s).
         </div>
         <div className="space-x-2">
           <Button
@@ -169,10 +169,10 @@ export function DataTable<TData, TValue>({ columns, data, searchKey, onDelete }:
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            Previous
+            Anterior
           </Button>
           <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-            Next
+            Siguiente
           </Button>
         </div>
       </div>

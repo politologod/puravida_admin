@@ -3,13 +3,15 @@ import { useEffect, useState } from "react"
 import { SidebarNav } from "../../../components/sidebar-nav"
 import { Header } from "../../../components/header"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Edit, Trash2 } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Tag, PackageCheck, Receipt } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
-import { getProductsById } from "@/lib/api" // Import the API function
+import { getProductById, getProductTaxes, deleteProduct } from "@/lib/api"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatPrice } from "@/lib/utils"
 
 type Product = {
   id: number | string
@@ -18,6 +20,8 @@ type Product = {
   price: string | number
   stock: number
   imageUrl?: string
+  category?: string
+  categories?: Array<{ id: string | number, name: string }>
   metadata?: {
     type?: string
     capacity?: string
@@ -26,27 +30,57 @@ type Product = {
   }
   createdAt: string
   updatedAt: string
-  Categories?: any[]
+}
+
+type ProductTax = {
+  id: number | string
+  name: string
+  code: string
+  rate: number
+  is_percentage: boolean
+  is_exempt: boolean
+  custom_rate?: number
 }
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [product, setProduct] = useState<Product | null>(null)
+  const [productTaxes, setProductTaxes] = useState<ProductTax[]>([])
   const [loading, setLoading] = useState(true)
+  const [taxesLoading, setTaxesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("general")
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true)
-        const data = await getProductsById(params.id)
-        setProduct(data)
+        const data = await getProductById(params.id)
+        console.log("Producto obtenido:", data)
+        
+        // Normalizar los datos del producto para manejar diferentes estructuras
+        const normalizedProduct = {
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          stock: data.stock,
+          imageUrl: data.imageUrl,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          metadata: data.metadata || {},
+          // Normalizar la forma en que accedemos a las categorías
+          categories: data.Categories || data.categories || []
+        }
+        
+        setProduct(normalizedProduct)
         setError(null)
       } catch (err) {
-        setError("Failed to load product details")
+        console.error("Error al cargar producto:", err)
+        setError("Error al cargar los detalles del producto")
         toast({
           title: "Error",
-          description: "Failed to load product details. Please try again.",
+          description: "Error al cargar los detalles del producto. Por favor intente nuevamente.",
           variant: "destructive",
         })
       } finally {
@@ -54,38 +88,76 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       }
     }
 
+    const fetchProductTaxes = async () => {
+      try {
+        setTaxesLoading(true)
+        const data = await getProductTaxes(params.id)
+        console.log("Impuestos del producto:", data)
+        
+        // Procesar los datos dependiendo de la estructura de la respuesta
+        let taxesData = data;
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          if (data.data) taxesData = data.data;
+          else if (data.taxes) taxesData = data.taxes;
+          else if (data.items) taxesData = data.items;
+        }
+        
+        if (Array.isArray(taxesData)) {
+          setProductTaxes(taxesData)
+        } else {
+          setProductTaxes([])
+        }
+      } catch (err) {
+        console.error("Error al cargar impuestos del producto:", err)
+        // No mostramos toast para los impuestos, solo los registramos en consola
+        setProductTaxes([])
+      } finally {
+        setTaxesLoading(false)
+      }
+    }
+
     if (params.id) {
       fetchProduct()
+      fetchProductTaxes()
     }
   }, [params.id])
 
   const handleDelete = async () => {
     if (!product) return
     
-    // This would normally call an API to delete the product
-    toast({
-      title: "Product deleted",
-      description: `${product.name} has been deleted.`,
-      variant: "destructive",
-    })
-    router.push("/products")
+    try {
+      await deleteProduct(product.id.toString())
+      toast({
+        title: "Producto eliminado",
+        description: `${product.name} ha sido eliminado correctamente.`,
+        variant: "destructive",
+      })
+      router.push("/products")
+    } catch (err) {
+      console.error("Error al eliminar producto:", err)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el producto. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    }
   }
 
-  // Function to determine category based on metadata
-  const determineCategory = (product: Product) => {
-    if (product.metadata?.type) {
-      return product.metadata.type
+  // Function to determine category based on product data
+  const getCategories = () => {
+    if (product?.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+      return product.categories;
     }
-    if (product.metadata?.capacity) {
-      return `${product.metadata.capacity} Container`
+    
+    if (product?.category) {
+      return [{ id: "1", name: product.category }];
     }
-    return "Uncategorized"
-  }
+    
+    if (product?.metadata?.type) {
+      return [{ id: "1", name: product.metadata.type }];
+    }
 
-  // Calculate approximate cost and profit margin (since we don't have cost in the API)
-  const calculateCost = (price: number) => {
-    // Assuming cost is roughly 60% of the price for this example
-    return price * 0.6
+    return [];
   }
 
   if (loading) {
@@ -112,13 +184,13 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             <div className="flex items-center gap-2 mb-6">
               <Button variant="outline" onClick={() => router.push("/products")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Products
+                Volver a Productos
               </Button>
             </div>
             <Card>
               <CardContent className="pt-6">
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                  {error || "Product not found"}
+                  {error || "Producto no encontrado"}
                 </div>
               </CardContent>
             </Card>
@@ -128,9 +200,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     )
   }
 
-  const category = determineCategory(product)
-  const price = parseFloat(product.price as string)
-  const cost = calculateCost(price)
+  const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price
+  const categories = getCategories()
   const images = [product.imageUrl || "/placeholder.svg?height=400&width=400"]
 
   return (
@@ -143,159 +214,217 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => router.push("/products")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Products
+                Volver a Productos
               </Button>
               <h1 className="text-2xl font-bold">{product.name}</h1>
-              <Badge
-                variant="outline"
-                className={
-                  category.includes("Agua")
-                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                    : category.includes("L")
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                      : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                }
-              >
-                {category}
-              </Badge>
+              {categories.length > 0 && (
+                <Badge
+                  variant="outline"
+                  className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                >
+                  {categories[0].name}
+                </Badge>
+              )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => router.push(`/products/${product.id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit Product
+                Editar Producto
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete Product
+                Eliminar Producto
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Product Images</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="aspect-square rounded-lg overflow-hidden border">
-                    <img
-                      src={images[0]}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-3 mb-6">
+              <TabsTrigger value="general">
+                <PackageCheck className="mr-2 h-4 w-4" />
+                General
+              </TabsTrigger>
+              <TabsTrigger value="categories">
+                <Tag className="mr-2 h-4 w-4" />
+                Categorías
+              </TabsTrigger>
+              <TabsTrigger value="taxes">
+                <Receipt className="mr-2 h-4 w-4" />
+                Impuestos
+              </TabsTrigger>
+            </TabsList>
 
-                  <div className="grid grid-cols-4 gap-2">
-                    {images.map((image, index) => (
-                      <div key={index} className="aspect-square rounded-lg overflow-hidden border">
+            <TabsContent value="general" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Imágenes del Producto</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="aspect-square rounded-lg overflow-hidden border">
                         <img
-                          src={image}
-                          alt={`${product.name} ${index + 1}`}
+                          src={images[0]}
+                          alt={product.name}
                           className="w-full h-full object-cover"
                         />
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
 
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Product Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">ID</h3>
-                    <p>{product.id}</p>
-                  </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {images.map((image, index) => (
+                          <div key={index} className="aspect-square rounded-lg overflow-hidden border">
+                            <img
+                              src={image}
+                              alt={`${product.name} ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
-                    <p>{product.description}</p>
-                  </div>
-
-                  {product.metadata && Object.keys(product.metadata).length > 0 && (
-                    <>
+                <div className="lg:col-span-2 space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Detalles del Producto</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-1">Specifications</h3>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          {Object.entries(product.metadata).map(([key, value]) => (
-                            <div key={key}>
-                              <span className="text-sm font-medium">{key}: </span>
-                              <span>{value}</span>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-1">ID</h3>
+                        <p>{product.id}</p>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-1">Descripción</h3>
+                        <p>{product.description || "Sin descripción"}</p>
+                      </div>
+
+                      {product.metadata && Object.keys(product.metadata).length > 0 && (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-1">Especificaciones</h3>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              {Object.entries(product.metadata).map(([key, value]) => (
+                                typeof value !== 'object' && (
+                                  <div key={key}>
+                                    <span className="text-sm font-medium">{key}: </span>
+                                    <span>{typeof value === 'boolean' ? (value ? 'Sí' : 'No') : value}</span>
+                                  </div>
+                                )
+                              ))}
                             </div>
-                          ))}
+                          </div>
+                        </>
+                      )}
+
+                      <Separator />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-1">Precio</h3>
+                          <p className="text-xl font-bold">{formatPrice(price)}</p>
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-1">Stock</h3>
+                          <p
+                            className={`text-xl font-bold ${
+                              product.stock === 0
+                                ? "text-red-500 dark:text-red-400"
+                                : product.stock < 10
+                                  ? "text-amber-500 dark:text-amber-400"
+                                  : "text-green-500 dark:text-green-400"
+                            }`}
+                          >
+                            {product.stock}
+                          </p>
                         </div>
                       </div>
-                    </>
-                  )}
 
-                  <Separator />
+                      <Separator />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Price</h3>
-                      <p className="text-xl font-bold">${price.toFixed(2)}</p>
-                    </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-1">Creado</h3>
+                          <p>{new Date(product.createdAt).toLocaleDateString()}</p>
+                        </div>
 
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Estimated Cost</h3>
-                      <p className="text-xl font-bold">${cost.toFixed(2)}</p>
-                    </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-1">Última Actualización</h3>
+                          <p>{new Date(product.updatedAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
 
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Stock</h3>
-                      <p
-                        className={`text-xl font-bold ${
-                          product.stock === 0
-                            ? "text-red-500 dark:text-red-400"
-                            : product.stock < 10
-                              ? "text-amber-500 dark:text-amber-400"
-                              : "text-green-500 dark:text-green-400"
-                        }`}
-                      >
-                        {product.stock}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Profit Margin</h3>
-                      <p className="text-xl font-bold">
-                        {Math.round(((price - cost) / price) * 100)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Created</h3>
-                    <p>{new Date(product.createdAt).toLocaleDateString()}</p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Last Updated</h3>
-                    <p>{new Date(product.updatedAt).toLocaleDateString()}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
+            <TabsContent value="categories">
               <Card>
                 <CardHeader>
-                  <CardTitle>Sales Information</CardTitle>
-                  <CardDescription>Recent sales and performance</CardDescription>
+                  <CardTitle>Categorías del Producto</CardTitle>
+                  <CardDescription>Categorías asignadas a este producto</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>Sales data would be displayed here</p>
-                  </div>
+                  {categories.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map((category) => (
+                        <Badge key={category.id} variant="secondary" className="text-base py-1 px-3">
+                          {category.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Este producto no tiene categorías asignadas.</p>
+                  )}
                 </CardContent>
               </Card>
-            </div>
-          </div>
+            </TabsContent>
+
+            <TabsContent value="taxes" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Impuestos del Producto</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {taxesLoading ? (
+                    <div className="flex justify-center p-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                    </div>
+                  ) : productTaxes.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Este producto no tiene impuestos asociados o está exento de impuestos.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {productTaxes.map((tax) => (
+                        <div key={tax.id} className="flex justify-between items-center p-2 border-b">
+                          <div>
+                            <div className="font-medium">{tax.name}</div>
+                            <div className="text-sm text-muted-foreground">Código: {tax.code}</div>
+                          </div>
+                          <div className="flex items-center">
+                            {tax.is_exempt ? (
+                              <Badge variant="outline" className="bg-green-100 text-green-800">Exento</Badge>
+                            ) : (
+                              <div className="font-medium">
+                                {tax.custom_rate !== undefined 
+                                  ? `${tax.custom_rate}${tax.is_percentage ? '%' : ''}`
+                                  : `${tax.rate}${tax.is_percentage ? '%' : ''}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
