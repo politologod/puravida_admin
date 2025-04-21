@@ -10,6 +10,15 @@ const api = axios.create({
 	},
 });
 
+// Configuración para peticiones multipart/form-data (subida de archivos)
+const apiFormData = axios.create({
+	baseURL: "http://localhost:2300/api",
+	withCredentials: true,
+	headers: {
+		"Content-Type": "multipart/form-data",
+	},
+});
+
 // Interceptor para manejar errores globalmente
 api.interceptors.response.use(
 	(response) => response,
@@ -21,12 +30,32 @@ api.interceptors.response.use(
 	}
 );
 
+// Aplicar el mismo interceptor al cliente para form-data
+apiFormData.interceptors.response.use(
+	(response) => response,
+	(error) => {
+		if (error.response?.status === 401) {
+			window.location.href = "/login"; // Redirige si no autenticado
+		}
+		return Promise.reject(error);
+	}
+);
+
 export const login = async (email: string, password: string) => {
 	try {
+		console.log('Intentando iniciar sesión con:', { email, password: '***' });
+		
 		const response = await api.post("/auth/login", { email, password });
+		
+		console.log('Respuesta del servidor:', response.status);
+		console.log('Datos de respuesta:', response.data);
+		console.log('Cookies después del login:', document.cookie);
+		
 		return response.data;
 	} catch (error) {
+		console.error('Error completo durante login:', error);
 		if (axios.isAxiosError(error) && error.response) {
+			console.error('Error de respuesta del servidor:', error.response.data);
 			throw new Error(error.response.data?.message || "Failed to login");
 		}
 		throw new Error("Failed to login");
@@ -41,7 +70,7 @@ export const register = async (
 	phone: string
 ) => {
 	try {
-		const response = await api.post("/register", {
+		const response = await api.post("/auth/register", {
 			email,
 			password,
 			name,
@@ -59,7 +88,7 @@ export const register = async (
 
 export const logout = async () => {
 	try {
-		const response = await api.post("/logout");
+		const response = await api.post("/auth/logout");
 		return response.data;
 	} catch (error) {
 		if (axios.isAxiosError(error) && error.response) {
@@ -72,9 +101,29 @@ export const logout = async () => {
 export const getUser = async () => {
 	try {
 		const response = await api.get("/users");
-		console.log("Datos de usuarios:", response.data);
-		return response.data;
+		console.log("Datos de usuarios (respuesta completa):", response);
+		
+		// Verificar la estructura de datos y asegurar que devolvamos un array
+		let usersData = response.data;
+		
+		// Si la respuesta no es un array, intentar encontrar el array de usuarios
+		if (usersData && typeof usersData === 'object' && !Array.isArray(usersData)) {
+			if (usersData.data) usersData = usersData.data;
+			else if (usersData.users) usersData = usersData.users;
+			else if (usersData.items) usersData = usersData.items;
+			else if (usersData.results) usersData = usersData.results;
+		}
+		
+		// Asegurar que devolvemos un array
+		if (!Array.isArray(usersData)) {
+			console.error("La estructura de respuesta no contiene un array de usuarios:", usersData);
+			return []; // Devolver array vacío para evitar errores
+		}
+		
+		console.log("Datos de usuarios procesados:", usersData);
+		return usersData;
 	} catch (error) {
+		console.error("Error completo al obtener usuarios:", error);
 		if (axios.isAxiosError(error) && error.response) {
 			throw new Error(error.response.data?.message || "Failed to get users");
 		}
@@ -132,3 +181,533 @@ export const updateUser = async (id: string, userData: any) => {
         throw new Error("Failed to update user");
     }
 }
+
+export const getAllProducts = async () => {
+	try {
+		console.log("API: Iniciando solicitud para obtener todos los productos");
+		const response = await api.get("/products");
+		console.log("API: Respuesta recibida de productos:", response.status);
+		
+		// Verificar estructura de datos
+		if (response.data && Array.isArray(response.data.data)) {
+			console.log(`API: Se encontraron ${response.data.data.length} productos`);
+			return response.data;
+		} else if (response.data && Array.isArray(response.data.products)) {
+			// Estructura específica con products
+			console.log(`API: Se encontraron ${response.data.products.length} productos en formato products`);
+			return { data: response.data.products };
+		} else {
+			console.warn("API: La estructura de respuesta de productos no es la esperada:", response.data);
+			// Intentar adaptar si la estructura es diferente
+			if (Array.isArray(response.data)) {
+				console.log("API: Adaptando formato de respuesta (array directo)");
+				return { data: response.data };
+			}
+			return response.data;
+		}
+	} catch (error) {
+		console.error("API: Error completo al obtener productos:", error);
+		if (axios.isAxiosError(error) && error.response) {
+			console.error("API: Error de respuesta del servidor:", error.response.data);
+			throw new Error(error.response.data?.message || "Failed to get products");
+		}
+		throw new Error("Failed to get products");
+	}
+}
+
+export const getProductById = async (id: string) => {
+	try {
+		const response = await api.get(`/products/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to get product");
+		}
+		throw new Error("Failed to get product");
+	}
+};
+
+export const createProduct = async (productData: {
+	name: string;
+	description?: string;
+	category: string;
+	price: number;
+	stock: number;
+	metadata?: object;
+	images?: string[];
+	imageUrl?: string;
+}) => {
+	try {
+		console.log("Datos del producto:", productData);
+		const response = await api.post("/products", productData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to create product");
+		}
+		throw new Error("Failed to create product");
+	}
+};
+
+export const updateProduct = async (id: string, productData: any) => {
+	try {
+		const response = await api.put(`/products/${id}`, productData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to update product");
+		}
+		throw new Error("Failed to update product");
+	}
+};
+
+export const deleteProduct = async (id: string) => {
+	try {
+		const response = await api.delete(`/products/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Failed to delete product");
+		}
+		throw new Error("Failed to delete product");
+	}
+};
+
+// Funciones para manejar órdenes
+export const getOrders = async () => {
+	try {
+		const response = await api.get("/orders");
+		console.log("API: Respuesta de órdenes recibida:", response.status);
+		
+		// Verificar estructura de datos
+		let ordersData = response.data;
+		
+		// Si la respuesta no es un array, intentar encontrar el array de órdenes
+		if (ordersData && typeof ordersData === 'object' && !Array.isArray(ordersData)) {
+			if (ordersData.data) ordersData = ordersData.data;
+			else if (ordersData.orders) ordersData = ordersData.orders;
+			else if (ordersData.items) ordersData = ordersData.items;
+			else if (ordersData.results) ordersData = ordersData.results;
+		}
+		
+		// Asegurar que devolvemos un array
+		if (!Array.isArray(ordersData)) {
+			console.error("API: La estructura de respuesta de órdenes no es la esperada:", ordersData);
+			return []; // Devolver array vacío para evitar errores
+		}
+		
+		console.log(`API: Se encontraron ${ordersData.length} órdenes`);
+		return ordersData;
+	} catch (error) {
+		console.error("API: Error completo al obtener órdenes:", error);
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener órdenes");
+		}
+		throw new Error("Error al obtener órdenes");
+	}
+};
+
+export const getMyOrders = async () => {
+	try {
+		const response = await api.get("/orders/my-orders");
+		console.log("API: Respuesta de mis órdenes recibida:", response.status);
+		
+		// Verificar estructura de datos
+		let ordersData = response.data;
+		
+		// Si la respuesta no es un array, intentar encontrar el array de órdenes
+		if (ordersData && typeof ordersData === 'object' && !Array.isArray(ordersData)) {
+			if (ordersData.data) ordersData = ordersData.data;
+			else if (ordersData.orders) ordersData = ordersData.orders;
+			else if (ordersData.items) ordersData = ordersData.items;
+			else if (ordersData.results) ordersData = ordersData.results;
+		}
+		
+		// Asegurar que devolvemos un array
+		if (!Array.isArray(ordersData)) {
+			console.error("API: La estructura de respuesta de mis órdenes no es la esperada:", ordersData);
+			return []; // Devolver array vacío para evitar errores
+		}
+		
+		console.log(`API: Se encontraron ${ordersData.length} órdenes del usuario`);
+		return ordersData;
+	} catch (error) {
+		console.error("API: Error completo al obtener mis órdenes:", error);
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener mis órdenes");
+		}
+		throw new Error("Error al obtener mis órdenes");
+	}
+};
+
+export const getOrderById = async (id: string) => {
+	try {
+		const response = await api.get(`/orders/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener la orden");
+		}
+		throw new Error("Error al obtener la orden");
+	}
+};
+
+export const createOrder = async (orderData: {
+	total: number;
+	shippingAddress: string;
+	paymentMethod: string;
+	items: Array<{
+		productId: string | number;
+		quantity: number;
+		price: number;
+		name?: string;
+	}>;
+	paymentNotes?: string;
+}) => {
+	try {
+		console.log("Datos de la orden:", orderData);
+		const response = await api.post("/orders", orderData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al crear la orden");
+		}
+		throw new Error("Error al crear la orden");
+	}
+};
+
+export const processPayment = async (id: string, paymentData: {
+	paymentProofUrl?: string;
+	paymentMethod: string;
+	paymentNotes?: string;
+}) => {
+	try {
+		const response = await api.post(`/orders/${id}/payment`, paymentData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al procesar el pago");
+		}
+		throw new Error("Error al procesar el pago");
+	}
+};
+
+export const updateOrderStatus = async (id: string, status: string) => {
+	try {
+		const response = await api.put(`/orders/${id}/status`, { status });
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar el estado de la orden");
+		}
+		throw new Error("Error al actualizar el estado de la orden");
+	}
+};
+
+export const updateOrderStatus2 = async (id: string, status: string) => {
+	try {
+		const response = await api.put(`/orders/${id}/update-status`, { status });
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar el estado de la orden");
+		}
+		throw new Error("Error al actualizar el estado de la orden");
+	}
+};
+
+export const updateOrder = async (id: string, orderData: any) => {
+	try {
+		const response = await api.put(`/orders/${id}`, orderData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar la orden");
+		}
+		throw new Error("Error al actualizar la orden");
+	}
+};
+
+export const deleteOrder = async (id: string) => {
+	try {
+		const response = await api.delete(`/orders/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al eliminar la orden");
+		}
+		throw new Error("Error al eliminar la orden");
+	}
+};
+
+// Funciones para manejar imágenes de productos
+export const uploadProductImage = async (productId: string | number, imageFile: File) => {
+	try {
+		const formData = new FormData();
+		formData.append('image', imageFile);
+
+		const response = await apiFormData.post(`/uploads/products/${productId}/image`, formData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al subir imagen del producto");
+		}
+		throw new Error("Error al subir imagen del producto");
+	}
+};
+
+export const uploadMultipleProductImages = async (productId: string | number, imageFiles: File[]) => {
+	try {
+		const formData = new FormData();
+		imageFiles.forEach(file => {
+			formData.append('images', file);
+		});
+
+		const response = await apiFormData.post(`/uploads/products/${productId}/images`, formData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al subir imágenes del producto");
+		}
+		throw new Error("Error al subir imágenes del producto");
+	}
+};
+
+export const deleteProductImage = async (productId: string | number, imageId: string) => {
+	try {
+		const response = await api.delete(`/uploads/products/${productId}/images/${imageId}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al eliminar imagen del producto");
+		}
+		throw new Error("Error al eliminar imagen del producto");
+	}
+};
+
+export const uploadPaymentProof = async (orderId: string | number, imageFile: File) => {
+	try {
+		const formData = new FormData();
+		formData.append('image', imageFile);
+
+		const response = await apiFormData.post(`/uploads/orders/${orderId}/payment-proof`, formData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al subir comprobante de pago");
+		}
+		throw new Error("Error al subir comprobante de pago");
+	}
+};
+
+// Funciones para manejar impuestos
+export const getAllTaxes = async () => {
+	try {
+		const response = await api.get("/taxes");
+		console.log("Datos de impuestos:", response.data);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener impuestos");
+		}
+		throw new Error("Error al obtener impuestos");
+	}
+};
+
+export const getTaxById = async (id: string) => {
+	try {
+		const response = await api.get(`/taxes/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener impuesto");
+		}
+		throw new Error("Error al obtener impuesto");
+	}
+};
+
+export const createTax = async (taxData: {
+	name: string;
+	code: string;
+	rate: number;
+	description?: string;
+	is_percentage?: boolean;
+	applies_to_all?: boolean;
+	country?: string;
+	region?: string;
+	active?: boolean;
+}) => {
+	try {
+		const response = await api.post("/taxes", taxData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al crear impuesto");
+		}
+		throw new Error("Error al crear impuesto");
+	}
+};
+
+export const updateTax = async (id: string, taxData: any) => {
+	try {
+		const response = await api.put(`/taxes/${id}`, taxData);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar impuesto");
+		}
+		throw new Error("Error al actualizar impuesto");
+	}
+};
+
+export const deleteTax = async (id: string) => {
+	try {
+		const response = await api.delete(`/taxes/${id}`);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al eliminar impuesto");
+		}
+		throw new Error("Error al eliminar impuesto");
+	}
+};
+
+export const updateProductTax = async (
+	productId: string | number, 
+	taxId: string | number, 
+	data: { is_exempt?: boolean; custom_rate?: number }
+) => {
+	try {
+		const response = await api.put(`/taxes/products/${productId}/taxes/${taxId}`, data);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar impuesto del producto");
+		}
+		throw new Error("Error al actualizar impuesto del producto");
+	}
+};
+
+// Funciones para obtener estadísticas y métricas del sistema
+export const getDashboardStats = async () => {
+	try {
+		const response = await api.get("/admin/stats/dashboard");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener estadísticas del dashboard");
+		}
+		throw new Error("Error al obtener estadísticas del dashboard");
+	}
+};
+
+export const getGeneralStats = async () => {
+	try {
+		const response = await api.get("/admin/stats");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener estadísticas generales");
+		}
+		throw new Error("Error al obtener estadísticas generales");
+	}
+};
+
+export const getSalesByCategory = async () => {
+	try {
+		const response = await api.get("/admin/stats/category");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener ventas por categoría");
+		}
+		throw new Error("Error al obtener ventas por categoría");
+	}
+};
+
+export const getOrdersByMonth = async (year?: number) => {
+	try {
+		const url = year ? `/admin/stats/orders?year=${year}` : "/admin/stats/orders";
+		const response = await api.get(url);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener órdenes por mes");
+		}
+		throw new Error("Error al obtener órdenes por mes");
+	}
+};
+
+export const getCustomersByMonth = async (year?: number) => {
+	try {
+		const url = year ? `/admin/stats/customers?year=${year}` : "/admin/stats/customers";
+		const response = await api.get(url);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener clientes por mes");
+		}
+		throw new Error("Error al obtener clientes por mes");
+	}
+};
+
+export const getSalesByMonth = async (year?: number) => {
+	try {
+		const url = year ? `/admin/stats/sales?year=${year}` : "/admin/stats/sales";
+		const response = await api.get(url);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener ventas por mes");
+		}
+		throw new Error("Error al obtener ventas por mes");
+	}
+};
+
+export const getMaintenanceMode = async () => {
+	try {
+		const response = await api.get("/admin/maintenance");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener modo de mantenimiento");
+		}
+		throw new Error("Error al obtener modo de mantenimiento");
+	}
+};
+
+export const setMaintenanceMode = async (maintenance: { maintenance_mode: boolean, maintenance_message?: string }) => {
+	try {
+		const response = await api.post("/admin/maintenance", maintenance);
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al actualizar modo de mantenimiento");
+		}
+		throw new Error("Error al actualizar modo de mantenimiento");
+	}
+};
+
+export const getSystemHealth = async () => {
+	try {
+		const response = await api.get("/health");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener estado del sistema");
+		}
+		throw new Error("Error al obtener estado del sistema");
+	}
+};
+
+export const getSystemMetrics = async () => {
+	try {
+		const response = await api.get("/health/metrics");
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response) {
+			throw new Error(error.response.data?.message || "Error al obtener métricas del sistema");
+		}
+		throw new Error("Error al obtener métricas del sistema");
+	}
+};

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   type ColumnDef,
@@ -13,7 +13,7 @@ import {
   type ColumnFiltersState,
   getFilteredRowModel,
 } from "@tanstack/react-table"
-import { MoreHorizontal, ArrowUpDown, Eye, FileText, Printer, Trash2, Truck, CheckCircle2, XCircle } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, Eye, FileText, Printer, Trash2, Truck, CheckCircle2, XCircle, CreditCard, Clock, PackageCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -28,176 +28,171 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getOrders, getMyOrders, deleteOrder, updateOrderStatus } from "@/lib/api"
 
-// Define the Order type
+// Define the Order type according to backend model
 export type Order = {
-  id: string
-  orderNumber: string
-  customer: {
+  id: string | number
+  orderNumber?: string
+  total: number
+  status: "pendiente por pagar" | "pagado y procesando" | "enviado" | "entregado" | "cancelado"
+  shippingAddress: string
+  paymentMethod: string
+  paymentProofUrl?: string
+  paymentDate?: string
+  paymentNotes?: string
+  userId?: string | number
+  items?: any[]
+  user?: {
     name: string
     email: string
-    avatar?: string
+    profilePic?: string
   }
-  date: string
-  total: number
-  status: "pending" | "processing" | "delivered" | "cancelled"
-  paymentStatus: "paid" | "unpaid" | "refunded"
-  paymentMethod: string
-  items: number
-  source: "pos" | "ecommerce"
-  deliveryMethod: "pickup" | "delivery" | "refill"
-  deliveryStatus?: "pending" | "in_transit" | "delivered" | null
-  deliveryAddress?: string
-  deliveryDate?: string
+  createdAt: string
+  updatedAt: string
 }
-
-// Sample data
-const orders: Order[] = [
-  {
-    id: "1",
-    orderNumber: "ORD-1042",
-    customer: {
-      name: "John Doe",
-      email: "john@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-04-01",
-    total: 42.97,
-    status: "delivered",
-    paymentStatus: "paid",
-    paymentMethod: "Credit Card",
-    items: 3,
-    source: "pos",
-    deliveryMethod: "delivery",
-    deliveryStatus: "delivered",
-    deliveryAddress: "123 Main St, Anytown, USA",
-    deliveryDate: "2025-04-01",
-  },
-  {
-    id: "2",
-    orderNumber: "ORD-1041",
-    customer: {
-      name: "Jane Smith",
-      email: "jane@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-04-01",
-    total: 23.98,
-    status: "processing",
-    paymentStatus: "paid",
-    paymentMethod: "PayPal",
-    items: 2,
-    source: "ecommerce",
-    deliveryMethod: "delivery",
-    deliveryStatus: "in_transit",
-    deliveryAddress: "456 Oak St, Somewhere, USA",
-    deliveryDate: "2025-04-02",
-  },
-  {
-    id: "3",
-    orderNumber: "ORD-1040",
-    customer: {
-      name: "Robert Johnson",
-      email: "robert@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-03-31",
-    total: 134.95,
-    status: "pending",
-    paymentStatus: "unpaid",
-    paymentMethod: "Cash",
-    items: 5,
-    source: "pos",
-    deliveryMethod: "pickup",
-    deliveryStatus: null,
-  },
-  {
-    id: "4",
-    orderNumber: "ORD-1039",
-    customer: {
-      name: "Emily Davis",
-      email: "emily@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-03-31",
-    total: 8.99,
-    status: "delivered",
-    paymentStatus: "paid",
-    paymentMethod: "Credit Card",
-    items: 1,
-    source: "ecommerce",
-    deliveryMethod: "refill",
-    deliveryStatus: "delivered",
-    deliveryDate: "2025-03-31",
-  },
-  {
-    id: "5",
-    orderNumber: "ORD-1038",
-    customer: {
-      name: "Michael Wilson",
-      email: "michael@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-03-30",
-    total: 56.96,
-    status: "cancelled",
-    paymentStatus: "refunded",
-    paymentMethod: "Credit Card",
-    items: 4,
-    source: "ecommerce",
-    deliveryMethod: "delivery",
-    deliveryStatus: null,
-    deliveryAddress: "789 Pine St, Nowhere, USA",
-  },
-  {
-    id: "6",
-    orderNumber: "ORD-1037",
-    customer: {
-      name: "Sarah Brown",
-      email: "sarah@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-03-30",
-    total: 29.98,
-    status: "delivered",
-    paymentStatus: "paid",
-    paymentMethod: "PayPal",
-    items: 2,
-    source: "ecommerce",
-    deliveryMethod: "delivery",
-    deliveryStatus: "delivered",
-    deliveryAddress: "101 Maple St, Anywhere, USA",
-    deliveryDate: "2025-03-30",
-  },
-  {
-    id: "7",
-    orderNumber: "ORD-1036",
-    customer: {
-      name: "David Miller",
-      email: "david@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    date: "2025-03-29",
-    total: 38.97,
-    status: "processing",
-    paymentStatus: "paid",
-    paymentMethod: "Cash",
-    items: 3,
-    source: "pos",
-    deliveryMethod: "refill",
-    deliveryStatus: "pending",
-  },
-]
 
 interface OrdersTableProps {
   status: string
 }
+
+// Función para formatear fechas al formato dd-mm-yyyy
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "Fecha inválida";
+  
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  
+  return `${day}-${month}-${year}`;
+};
 
 export function OrdersTable({ status }: OrdersTableProps) {
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [rowSelection, setRowSelection] = useState({})
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Obtener las órdenes al cargar el componente
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setIsLoading(true)
+        // Usar getMyOrders o getOrders según el perfil de usuario (si es admin o no)
+        const response = await getOrders()
+        
+        // Determinar dónde están los datos de órdenes
+        let ordersData = response;
+        
+        // Si la respuesta es un objeto con una propiedad que contiene las órdenes
+        if (response && typeof response === 'object' && !Array.isArray(response)) {
+          // Buscar propiedades comunes donde podrían estar las órdenes
+          if (response.data) ordersData = response.data;
+          else if (response.orders) ordersData = response.orders;
+          else if (response.items) ordersData = response.items;
+          else if (response.results) ordersData = response.results;
+        }
+        
+        // Asegurarse de que ordersData sea un array
+        if (!Array.isArray(ordersData)) {
+          console.error("Los datos recibidos no son un array:", ordersData);
+          setOrders([]);
+          setError('Formato de datos no válido');
+          return;
+        }
+        
+        // Mapear y normalizar los datos de órdenes
+        const parsedOrders = ordersData.map((order: any) => ({
+          id: order.id || order._id || Math.random().toString(36).substring(2, 9),
+          orderNumber: `ORD-${order.id || Math.floor(Math.random() * 10000)}`,
+          total: order.total || 0,
+          status: order.status || "pendiente por pagar",
+          shippingAddress: order.shippingAddress || "Sin dirección",
+          paymentMethod: order.paymentMethod || "No especificado",
+          paymentProofUrl: order.paymentProofUrl || "",
+          paymentDate: order.paymentDate || order.updatedAt,
+          paymentNotes: order.paymentNotes || "",
+          userId: order.userId,
+          items: order.OrderItems || [],
+          user: order.User ? {
+            name: order.User.name || "Cliente sin nombre",
+            email: order.User.email || "email@example.com",
+            avatar: order.User.profilePicture || "/placeholder.svg?height=40&width=40",
+          } : {
+            name: "Cliente sin nombre",
+            email: "email@example.com",
+            avatar: "/placeholder.svg?height=40&width=40",
+          },
+          createdAt: order.createdAt || new Date().toISOString(),
+          updatedAt: order.updatedAt || new Date().toISOString(),
+        }))
+        
+        setOrders(parsedOrders)
+        setError(null)
+      } catch (err) {
+        console.error('Error al obtener órdenes:', err)
+        setError('Error al cargar las órdenes')
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las órdenes",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [])
+
+  // Manejar la eliminación de órdenes
+  const handleDeleteOrder = async (id: string) => {
+    try {
+      await deleteOrder(id)
+      // Actualizar la lista de órdenes después de eliminar
+      setOrders(orders.filter(order => order.id !== id))
+      toast({
+        title: "Orden eliminada",
+        description: "La orden ha sido eliminada correctamente",
+        variant: "destructive",
+      })
+    } catch (error) {
+      console.error("Error al eliminar la orden:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la orden",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Manejar la actualización de estado de órdenes
+  const handleUpdateOrderStatus = async (id: string, newStatus: string) => {
+    try {
+      await updateOrderStatus(id, newStatus)
+      // Actualizar la lista de órdenes con el nuevo estado
+      setOrders(orders.map(order => 
+        order.id === id 
+          ? { ...order, status: newStatus as Order['status'] } 
+          : order
+      ))
+      toast({
+        title: "Estado actualizado",
+        description: `La orden ha sido marcada como "${newStatus}"`,
+      })
+    } catch (error) {
+      console.error("Error al actualizar el estado de la orden:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado de la orden",
+        variant: "destructive",
+      })
+    }
+  }
 
   // Filter orders based on status
   const filteredOrders = status === "all" ? orders : orders.filter((order) => order.status === status)
@@ -236,26 +231,28 @@ export function OrdersTable({ status }: OrdersTableProps) {
       cell: ({ row }) => <div className="font-medium">{row.getValue("orderNumber")}</div>,
     },
     {
-      accessorKey: "customer",
+      accessorKey: "user",
       header: "Cliente",
       cell: ({ row }) => {
-        const customer = row.original.customer
+        const user = row.original.user
+        if (!user) return <div className="flex items-center gap-2">No hay cliente</div>
+        
         return (
           <div className="flex items-center gap-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={customer.avatar} alt={customer.name} />
-              <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+              <AvatarImage src={user.profilePic || "/placeholder.svg"} alt={`${user.name}'s avatar`} />
+              <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <div>
-              <div className="font-medium">{customer.name}</div>
-              <div className="text-xs text-muted-foreground">{customer.email}</div>
+            <div className="flex flex-col">
+              <span className="font-medium">{user.name}</span>
+              <span className="text-xs text-muted-foreground">{user.email}</span>
             </div>
           </div>
         )
       },
     },
     {
-      accessorKey: "date",
+      accessorKey: "createdAt",
       header: ({ column }) => {
         return (
           <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
@@ -264,7 +261,11 @@ export function OrdersTable({ status }: OrdersTableProps) {
           </Button>
         )
       },
-      cell: ({ row }) => <div>{row.getValue("date")}</div>,
+      cell: ({ row }) => {
+        // Formatear la fecha al formato dd-mm-yyyy
+        const dateString = row.getValue("createdAt") as string;
+        return <div>{formatDate(dateString)}</div>;
+      },
     },
     {
       accessorKey: "total",
@@ -290,114 +291,75 @@ export function OrdersTable({ status }: OrdersTableProps) {
       header: "Estado",
       cell: ({ row }) => {
         const status = row.getValue("status") as string
-        const statusMap: Record<string, string> = {
-          delivered: "Entregada",
-          processing: "En Proceso",
-          pending: "Pendiente",
-          cancelled: "Cancelada",
+        const statusMap: Record<string, { label: string, color: string, icon: any }> = {
+          "pendiente por pagar": { 
+            label: "Pendiente de pago", 
+            color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+            icon: Clock
+          },
+          "pagado y procesando": { 
+            label: "Pagado y procesando", 
+            color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+            icon: CreditCard
+          },
+          "enviado": { 
+            label: "Enviado", 
+            color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
+            icon: Truck
+          },
+          "entregado": { 
+            label: "Entregado", 
+            color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+            icon: PackageCheck
+          },
+          "cancelado": { 
+            label: "Cancelado", 
+            color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+            icon: XCircle
+          },
         }
+        
+        const StatusIcon = statusMap[status]?.icon || Clock;
+        
+        return (
+          <Badge
+            variant="outline"
+            className={statusMap[status]?.color || ""}
+          >
+            <StatusIcon className="h-3 w-3 mr-1" />
+            {statusMap[status]?.label || status}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: "paymentMethod",
+      header: "Método de Pago",
+      cell: ({ row }) => {
+        const paymentMethod = row.getValue("paymentMethod") as string
         return (
           <Badge
             variant="outline"
             className={
-              status === "delivered"
+              paymentMethod === "cash"
                 ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : status === "processing"
+                : paymentMethod === "card"
                   ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                  : status === "pending"
-                    ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                  : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
             }
           >
-            {statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1)}
+            {paymentMethod === "cash" ? "Efectivo" : paymentMethod === "card" ? "Tarjeta" : paymentMethod}
           </Badge>
         )
       },
     },
     {
-      accessorKey: "paymentStatus",
-      header: "Pago",
+      accessorKey: "shippingAddress",
+      header: "Dirección de Envío",
       cell: ({ row }) => {
-        const paymentStatus = row.getValue("paymentStatus") as string
-        const paymentStatusMap: Record<string, string> = {
-          paid: "Pagado",
-          unpaid: "No Pagado",
-          refunded: "Reembolsado",
-        }
+        const shippingAddress = row.getValue("shippingAddress") as string
         return (
-          <Badge
-            variant="outline"
-            className={
-              paymentStatus === "paid"
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : paymentStatus === "unpaid"
-                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-            }
-          >
-            {paymentStatusMap[paymentStatus] || paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
-          </Badge>
-        )
-      },
-    },
-    {
-      accessorKey: "deliveryMethod",
-      header: "Entrega",
-      cell: ({ row }) => {
-        const deliveryMethod = row.getValue("deliveryMethod") as string
-        const deliveryStatus = row.original.deliveryStatus
-
-        const deliveryMethodMap: Record<string, string> = {
-          pickup: "Recogida",
-          delivery: "Entrega",
-          refill: "Recarga",
-        }
-
-        const deliveryStatusMap: Record<string, string> = {
-          delivered: "Entregado",
-          in_transit: "En Tránsito",
-          pending: "Pendiente",
-        }
-
-        return (
-          <div className="flex flex-col gap-1">
-            <Badge variant="secondary">
-              {deliveryMethodMap[deliveryMethod] || deliveryMethod.charAt(0).toUpperCase() + deliveryMethod.slice(1)}
-            </Badge>
-            {deliveryStatus && (
-              <Badge
-                variant="outline"
-                className={
-                  deliveryStatus === "delivered"
-                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                    : deliveryStatus === "in_transit"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                      : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                }
-              >
-                {deliveryStatusMap[deliveryStatus] || deliveryStatus.charAt(0).toUpperCase() + deliveryStatus.slice(1)}
-              </Badge>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: "source",
-      header: "Origen",
-      cell: ({ row }) => {
-        const source = row.getValue("source") as string
-        return (
-          <Badge
-            variant="outline"
-            className={
-              source === "pos"
-                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-            }
-          >
-            {source === "pos" ? "POS" : "E-commerce"}
-          </Badge>
+          <div className="font-medium">{shippingAddress}</div>
         )
       },
     },
@@ -405,11 +367,10 @@ export function OrdersTable({ status }: OrdersTableProps) {
       id: "actions",
       cell: ({ row }) => {
         const order = row.original
-
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
                 <span className="sr-only">Abrir menú</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -418,63 +379,63 @@ export function OrdersTable({ status }: OrdersTableProps) {
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}`)}>
                 <Eye className="mr-2 h-4 w-4" />
-                Ver Detalles
+                Ver detalles
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/edit`)}>
                 <FileText className="mr-2 h-4 w-4" />
-                Editar Orden
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Imprimir Factura
+                Editar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {order.status !== "delivered" && order.status !== "cancelled" && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    toast({
-                      title: "Estado de orden actualizado",
-                      description: "La orden ha sido marcada como entregada.",
-                    })
-                  }}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Marcar como Entregada
+              <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/print`)}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Cambiar estado</DropdownMenuLabel>
+              
+              {order.status !== "pendiente por pagar" && (
+                <DropdownMenuItem onClick={() => handleUpdateOrderStatus(String(order.id), "pendiente por pagar")}>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Pendiente por pagar
                 </DropdownMenuItem>
               )}
-              {order.status !== "cancelled" && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    toast({
-                      title: "Orden cancelada",
-                      description: "La orden ha sido cancelada.",
-                      variant: "destructive",
-                    })
-                  }}
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Cancelar Orden
+              
+              {order.status !== "pagado y procesando" && (
+                <DropdownMenuItem onClick={() => handleUpdateOrderStatus(String(order.id), "pagado y procesando")}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pagado y procesando
                 </DropdownMenuItem>
               )}
-              {order.deliveryMethod === "delivery" && order.deliveryStatus !== "delivered" && (
-                <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/delivery`)}>
+              
+              {order.status !== "enviado" && (
+                <DropdownMenuItem onClick={() => handleUpdateOrderStatus(String(order.id), "enviado")}>
                   <Truck className="mr-2 h-4 w-4" />
-                  Actualizar Entrega
+                  Enviado
                 </DropdownMenuItem>
               )}
+              
+              {order.status !== "entregado" && (
+                <DropdownMenuItem onClick={() => handleUpdateOrderStatus(String(order.id), "entregado")}>
+                  <PackageCheck className="mr-2 h-4 w-4" />
+                  Entregado
+                </DropdownMenuItem>
+              )}
+              
+              {order.status !== "cancelado" && (
+                <DropdownMenuItem onClick={() => handleUpdateOrderStatus(String(order.id), "cancelado")}>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancelado
+                </DropdownMenuItem>
+              )}
+              
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => {
-                  toast({
-                    title: "Orden eliminada",
-                    description: "La orden ha sido eliminada.",
-                    variant: "destructive",
-                  })
-                }}
                 className="text-destructive focus:text-destructive"
+                onClick={() => handleDeleteOrder(String(order.id))}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar Orden
+                Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -534,7 +495,7 @@ export function OrdersTable({ status }: OrdersTableProps) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No orders found.
+                  No se encontraron órdenes.
                 </TableCell>
               </TableRow>
             )}
@@ -543,8 +504,8 @@ export function OrdersTable({ status }: OrdersTableProps) {
       </div>
       <div className="flex items-center justify-end space-x-2">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
-          selected.
+          {table.getFilteredSelectedRowModel().rows.length} de {table.getFilteredRowModel().rows.length} fila(s)
+          seleccionada(s).
         </div>
         <div className="space-x-2">
           <Button
@@ -553,10 +514,10 @@ export function OrdersTable({ status }: OrdersTableProps) {
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            Previous
+            Anterior
           </Button>
           <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-            Next
+            Siguiente
           </Button>
         </div>
       </div>

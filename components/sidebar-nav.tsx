@@ -14,8 +14,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
+import { logout } from "@/lib/api"
+import { toast } from "@/components/ui/use-toast"
 
 // Actualizar el sidebar: eliminar pestañas innecesarias, arreglar el botón de logout y traducir al español
 const navItems = [
@@ -25,12 +27,35 @@ const navItems = [
   { icon: Users, label: "Usuarios", href: "/users", color: "text-gray-600 dark:text-gray-400" },
   { icon: ClipboardList, label: "Órdenes", href: "/orders", color: "text-gray-600 dark:text-gray-400" },
   { icon: Settings, label: "Configuración", href: "/settings", color: "text-gray-600 dark:text-gray-400" },
-  
 ]
 
 export function SidebarNav() {
   const [collapsed, setCollapsed] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      await logout()
+      toast({
+        title: "Sesión cerrada",
+        description: "Has cerrado sesión correctamente",
+      })
+      // Redireccionar al login
+      router.push("/login")
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo cerrar la sesión correctamente",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <div
@@ -84,12 +109,14 @@ export function SidebarNav() {
         <Button
           variant="ghost"
           className={cn(
-            "w-full mt-4 text-gray-600 dark:text-gray-400",
+            "w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950",
             collapsed ? "justify-center px-2" : "justify-start",
           )}
+          onClick={handleLogout}
+          disabled={isLoggingOut}
         >
           <LogOut className={cn("h-4 w-4", collapsed ? "mr-0" : "mr-2")} />
-          {!collapsed && "Cerrar sesión"}
+          {!collapsed && (isLoggingOut ? "Cerrando sesión..." : "Cerrar sesión")}
         </Button>
       </div>
     </div>

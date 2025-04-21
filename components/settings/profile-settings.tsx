@@ -2,29 +2,30 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Save, Upload, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "@/components/ui/use-toast"
+import { getUser, updateUser } from "@/lib/api"
+import { useAuth } from "@/context/auth-context"
 
 const profileFormSchema = z
   .object({
     name: z.string().min(2, {
-      message: "Name must be at least 2 characters.",
+      message: "El nombre debe tener al menos 2 caracteres.",
     }),
     email: z.string().email({
-      message: "Please enter a valid email address.",
+      message: "Por favor, introduce un email válido.",
     }),
     phone: z.string().optional(),
-    bio: z.string().optional(),
+    address: z.string().optional(),
     password: z.string().optional(),
     newPassword: z.string().optional(),
     confirmPassword: z.string().optional(),
@@ -37,7 +38,7 @@ const profileFormSchema = z
       return true
     },
     {
-      message: "Current password is required to set a new password",
+      message: "Se requiere la contraseña actual para establecer una nueva contraseña",
       path: ["password"],
     },
   )
@@ -49,34 +50,137 @@ const profileFormSchema = z
       return true
     },
     {
-      message: "Passwords do not match",
+      message: "Las contraseñas no coinciden",
       path: ["confirmPassword"],
     },
   )
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
-const defaultValues: Partial<ProfileFormValues> = {
-  name: "Admin User",
-  email: "admin@puravida23.com",
-  phone: "+1 (555) 123-4567",
-  bio: "System administrator for Puravida 23 POS",
-}
-
 export function ProfileSettings() {
-  const [avatar, setAvatar] = useState<string | null>("/placeholder.svg?height=128&width=128")
+  const { user: authUser, updateUserData } = useAuth();
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues,
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+    },
   })
 
-  function onSubmit(data: ProfileFormValues) {
+  // Cargar datos del usuario al montar el componente
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Si ya tenemos los datos del usuario en el contexto de autenticación, los usamos
+        if (authUser) {
+          form.reset({
+            name: authUser.name || "",
+            email: authUser.email || "",
+            phone: authUser.phone || "",
+            address: authUser.address || "",
+          })
+          
+          // Establecer avatar si existe
+          if (authUser.profilePicture) {
+            setAvatar(authUser.profilePicture)
+          }
+        } 
+        // Si no, intentamos obtenerlos de la API
+        else {
+          const userData = await getUser()
+          
+          // Comprobar si userData es un array o un objeto
+          const user = Array.isArray(userData) ? userData[0] : userData
+          
+          if (user) {
+            form.reset({
+              name: user.name || "",
+              email: user.email || "",
+              phone: user.phone || "",
+              address: user.address || "",
+            })
+            
+            // Establecer avatar si existe
+            if (user.profilePicture) {
+              setAvatar(user.profilePicture)
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error al cargar datos del usuario:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los datos del usuario",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchUserData()
+  }, [authUser, form])
+
+  async function onSubmit(data: ProfileFormValues) {
+    try {
+      setIsLoading(true)
+      
+      // Preparar los datos para actualizar
+      const updateData: any = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone || undefined,
+        address: data.address || undefined,
+      }
+      
+      // Si se proporciona una nueva contraseña, la incluimos
+      if (data.newPassword) {
+        updateData.password = data.newPassword
+      }
+      
+      // Si hay un avatar nuevo, lo incluimos
+      if (avatar && avatar !== authUser?.profilePicture) {
+        updateData.profilePicture = avatar
+      }
+      
+      // Obtener el ID del usuario (asumiendo que está disponible en el contexto de autenticación)
+      const userId = authUser?.id
+      
+      if (userId) {
+        await updateUser(String(userId), updateData)
+        
+        // Actualizar también los datos en el contexto de autenticación si está disponible
+        if (updateUserData) {
+          updateUserData({
+            ...authUser,
+            ...updateData,
+          })
+        }
+        
+        toast({
+          title: "Perfil actualizado",
+          description: "Tu perfil ha sido actualizado correctamente.",
+        })
+      } else {
+        throw new Error("No se pudo obtener el ID del usuario")
+      }
+    } catch (error) {
+      console.error("Error al actualizar el perfil:", error)
     toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully.",
+        title: "Error",
+        description: "No se pudo actualizar el perfil",
+        variant: "destructive",
     })
-    console.log(data)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -85,8 +189,8 @@ export function ProfileSettings() {
       const imageUrl = URL.createObjectURL(file)
       setAvatar(imageUrl)
       toast({
-        title: "Avatar uploaded",
-        description: "Your avatar has been uploaded successfully.",
+        title: "Avatar cargado",
+        description: "Tu avatar ha sido cargado correctamente. Guarda los cambios para aplicar.",
       })
     }
   }
@@ -96,8 +200,8 @@ export function ProfileSettings() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Profile Picture</CardTitle>
-            <CardDescription>Update your profile picture</CardDescription>
+            <CardTitle>Foto de Perfil</CardTitle>
+            <CardDescription>Actualiza tu foto de perfil</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <Avatar className="h-32 w-32 mb-4">
@@ -111,7 +215,7 @@ export function ProfileSettings() {
             <Button variant="outline" asChild>
               <label htmlFor="avatar-upload" className="cursor-pointer">
                 <Upload className="mr-2 h-4 w-4" />
-                Upload Picture
+                Subir Imagen
               </label>
             </Button>
           </CardContent>
@@ -120,8 +224,8 @@ export function ProfileSettings() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Update your personal information</CardDescription>
+              <CardTitle>Información Personal</CardTitle>
+              <CardDescription>Actualiza tu información personal</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -132,9 +236,9 @@ export function ProfileSettings() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Full Name</FormLabel>
+                          <FormLabel>Nombre Completo</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter your name" {...field} />
+                            <Input placeholder="Introduce tu nombre" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -148,7 +252,7 @@ export function ProfileSettings() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter your email" {...field} />
+                            <Input placeholder="Introduce tu email" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -160,33 +264,33 @@ export function ProfileSettings() {
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
+                          <FormLabel>Teléfono</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter your phone number" {...field} />
+                            <Input placeholder="Introduce tu número de teléfono" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
 
                   <FormField
                     control={form.control}
-                    name="bio"
+                      name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Bio</FormLabel>
+                          <FormLabel>Dirección</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Tell us a little about yourself" className="min-h-32" {...field} />
+                            <Input placeholder="Introduce tu dirección" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  </div>
 
-                  <Button type="submit">
+                  <Button type="submit" disabled={isLoading}>
                     <Save className="mr-2 h-4 w-4" />
-                    Save Changes
+                    {isLoading ? "Guardando..." : "Guardar Cambios"}
                   </Button>
                 </form>
               </Form>
@@ -195,8 +299,8 @@ export function ProfileSettings() {
 
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>Update your password</CardDescription>
+              <CardTitle>Cambiar Contraseña</CardTitle>
+              <CardDescription>Actualiza tu contraseña</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -206,9 +310,9 @@ export function ProfileSettings() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Current Password</FormLabel>
+                        <FormLabel>Contraseña Actual</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="Enter your current password" {...field} />
+                          <Input type="password" placeholder="Introduce tu contraseña actual" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -221,9 +325,9 @@ export function ProfileSettings() {
                       name="newPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>New Password</FormLabel>
+                          <FormLabel>Nueva Contraseña</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="Enter new password" {...field} />
+                            <Input type="password" placeholder="Introduce la nueva contraseña" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -235,9 +339,9 @@ export function ProfileSettings() {
                       name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormLabel>Confirmar Nueva Contraseña</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="Confirm new password" {...field} />
+                            <Input type="password" placeholder="Confirma la nueva contraseña" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -245,9 +349,9 @@ export function ProfileSettings() {
                     />
                   </div>
 
-                  <Button type="submit">
+                  <Button type="submit" disabled={isLoading}>
                     <Save className="mr-2 h-4 w-4" />
-                    Update Password
+                    {isLoading ? "Actualizando..." : "Actualizar Contraseña"}
                   </Button>
                 </form>
               </Form>

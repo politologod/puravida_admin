@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { User, ShoppingCart, DollarSign, Clock, Truck, AlertTriangle, Users, Image } from "lucide-react"
+import { User, ShoppingCart, DollarSign, AlertTriangle, Image, Percent } from "lucide-react"
 
 interface SettingsSidebarProps {
   activeTab: string
@@ -9,13 +9,11 @@ interface SettingsSidebarProps {
 }
 
 const settingsTabs = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "ecommerce", label: "E-commerce", icon: ShoppingCart },
-  { id: "currency", label: "Currency", icon: DollarSign },
-  { id: "timezone", label: "Timezone", icon: Clock },
-  { id: "delivery", label: "Delivery", icon: Truck },
-  { id: "maintenance", label: "Maintenance Mode", icon: AlertTriangle },
-  { id: "users", label: "Users & Permissions", icon: Users },
+  { id: "profile", label: "Perfil", icon: User },
+  { id: "ecommerce", label: "Pagos y Encomiendas", icon: ShoppingCart },
+  { id: "currency", label: "Moneda", icon: DollarSign },
+  { id: "taxes", label: "Impuestos", icon: Percent },
+  { id: "maintenance", label: "Modo Mantenimiento", icon: AlertTriangle },
   { id: "hero", label: "Hero & Carousel", icon: Image },
 ]
 

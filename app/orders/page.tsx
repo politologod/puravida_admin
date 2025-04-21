@@ -44,17 +44,19 @@ export default function OrdersPage() {
             </div>
           </div>
 
+          <div className="mb-6">
           <OrderStats />
+          </div>
 
           <div className="my-6">
             <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <TabsList className="grid grid-cols-5">
                   <TabsTrigger value="all">Todas las Órdenes</TabsTrigger>
-                  <TabsTrigger value="pending">Pendientes</TabsTrigger>
-                  <TabsTrigger value="processing">En Proceso</TabsTrigger>
-                  <TabsTrigger value="delivered">Entregadas</TabsTrigger>
-                  <TabsTrigger value="cancelled">Canceladas</TabsTrigger>
+                  <TabsTrigger value="pendiente por pagar">Por Pagar</TabsTrigger>
+                  <TabsTrigger value="pagado y procesando">En Proceso</TabsTrigger>
+                  <TabsTrigger value="enviado">Enviadas</TabsTrigger>
+                  <TabsTrigger value="entregado">Entregadas</TabsTrigger>
                 </TabsList>
 
                 <div className="flex items-center gap-2">
@@ -81,17 +83,17 @@ export default function OrdersPage() {
               <TabsContent value="all">
                 <OrdersTable status="all" />
               </TabsContent>
-              <TabsContent value="pending">
-                <OrdersTable status="pending" />
+              <TabsContent value="pendiente por pagar">
+                <OrdersTable status="pendiente por pagar" />
               </TabsContent>
-              <TabsContent value="processing">
-                <OrdersTable status="processing" />
+              <TabsContent value="pagado y procesando">
+                <OrdersTable status="pagado y procesando" />
               </TabsContent>
-              <TabsContent value="delivered">
-                <OrdersTable status="delivered" />
+              <TabsContent value="enviado">
+                <OrdersTable status="enviado" />
               </TabsContent>
-              <TabsContent value="cancelled">
-                <OrdersTable status="cancelled" />
+              <TabsContent value="entregado">
+                <OrdersTable status="entregado" />
               </TabsContent>
             </Tabs>
           </div>

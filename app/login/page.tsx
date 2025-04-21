@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Droplets } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,45 +11,69 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "@/components/ui/use-toast"
-import { login } from "@/lib/api"
-
+import { useAuth } from "@/context/auth-context"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard'
+  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const { login, isLoading, user } = useAuth()
+
+  // Efecto para redirigir si ya está autenticado
+  useEffect(() => {
+    // Si el usuario ya está autenticado, redirigir al dashboard o returnUrl
+    if (user) {
+      console.log("Usuario autenticado, redirigiendo a:", returnUrl);
+      router.push(returnUrl);
+    }
+  }, [user, router, returnUrl]);
 
   const handleLogin = async () => {
-    setIsLoading(true)
     try {
-      const response = await login(email, password)
+      // Validaciones básicas
+      if (!email || !password) {
+        toast({
+          title: "Error de inicio de sesión",
+          description: "Por favor ingresa tu correo y contraseña",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Usamos la función login del contexto de autenticación
+      await login(email, password);
+      
       toast({
         title: "Inicio de sesión exitoso",
         description: "Bienvenido al sistema POS Puravida 23",
-      })
-      console.log("Respuesta del servidor:", response)
-// 1 day
-      router.push("/dashboard")
+      });
+      
+      // Usamos setTimeout para asegurar que la redirección ocurra después de que el estado se actualice
+      setTimeout(() => {
+        console.log("Redirigiendo a:", returnUrl);
+        router.push(returnUrl);
+      }, 500);
+      
     } catch (error) {
-      console.error("Error de inicio de sesión:", error)
+      console.error("Error de inicio de sesión:", error);
       if (error instanceof Error) {
         toast({
           title: "Error de inicio de sesión",
           description: error.message,
           variant: "destructive",
-        })
+        });
       } else {
         toast({
           title: "Error de inicio de sesión",
           description: "Ocurrió un error inesperado",
           variant: "destructive",
-        })
+        });
       }
-    } finally {
-      setIsLoading(false)
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-50 dark:bg-gray-950 p-4">

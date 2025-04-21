@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, MoreHorizontal, Edit, Trash2, Eye, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getUser } from "@/lib/api"
 
 type User = {
   id: string
@@ -40,6 +41,18 @@ type User = {
   status: "active" | "inactive"
   avatar?: string
   lastActive: string
+}
+
+type ApiUser = {
+  id_autoincrement: number
+  name: string
+  email: string
+  role: string
+  status?: string
+  profilePic?: string
+  lastLogin?: string
+  phone?: string
+  address?: string
 }
 
 type Role = {
@@ -53,6 +66,63 @@ type Role = {
 export function UserManagementSettings() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false)
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false)
+  const [apiUsers, setApiUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true)
+        const userData = await getUser()
+        console.log("Usuarios obtenidos:", userData)
+        
+        // Añadir log para ver cada usuario y su rol
+        if (Array.isArray(userData)) {
+          userData.forEach(user => {
+            console.log(`Usuario: ${user.name}, Email: ${user.email}, Rol: ${user.role}, ID: ${user.id_autoincrement}`);
+          });
+        }
+        
+        // Filtrar solo usuarios con roles vendor o admin (insensible a mayúsculas/minúsculas)
+        const filteredUsers = userData
+          .filter((user: ApiUser) => {
+            if (!user || user === null) return false;
+            
+            // Si no tiene rol, mostrar de todas formas para verificación
+            if (user.role === undefined || user.role === null) {
+              console.log(`Usuario sin rol definido: ${user.name}, Email: ${user.email}`);
+              return true;
+            }
+            
+            const role = user.role?.toLowerCase();
+            return role === 'vendor' || role === 'admin';
+          })
+          .map((user: ApiUser) => ({
+            id: user.id_autoincrement?.toString() || Math.random().toString(),
+            name: user.name || "Sin nombre",
+            email: user.email || "Sin email",
+            role: user.role || "desconocido",
+            status: user.status || "active",
+            lastActive: user.lastLogin || "N/A",
+            avatar: user.profilePic
+          }))
+        
+        console.log("Usuarios filtrados:", filteredUsers);
+        setApiUsers(filteredUsers)
+      } catch (error) {
+        console.error("Error al obtener usuarios:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los usuarios",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchUsers()
+  }, [])
 
   const users: User[] = [
     {
@@ -260,9 +330,10 @@ export function UserManagementSettings() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="users">
-        <TabsList className="grid grid-cols-2 mb-6">
+        <TabsList className="grid grid-cols-3 mb-6">
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
+          <TabsTrigger value="admins">Admins & Vendors</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -467,6 +538,89 @@ export function UserManagementSettings() {
                   </Card>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="admins">
+          <Card>
+            <CardHeader>
+              <CardTitle>Administradores y Vendedores</CardTitle>
+              <CardDescription>Lista de usuarios con roles de administrador o vendedor</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <p>Cargando usuarios...</p>
+                </div>
+              ) : apiUsers.length > 0 ? (
+                <div className="rounded-md border">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Usuario
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Rol
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Estado
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {apiUsers.map((user) => (
+                        <tr key={user.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <Avatar>
+                                  <AvatarImage src={user.avatar} alt={user.name} />
+                                  <AvatarFallback>
+                                    {user.name.charAt(0)}
+                                    {user.name.split(" ")[1]?.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Badge
+                              variant="outline"
+                              className={
+                                user.role?.toLowerCase().includes("admin")
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                                  : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                              }
+                            >
+                              {user.role?.toLowerCase().includes("admin") ? "Administrador" : "Vendedor"}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Badge variant={user.status === "active" ? "default" : "secondary"}>
+                              {user.status === "active" ? "Activo" : "Inactivo"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p>No se encontraron usuarios con roles de administrador o vendedor.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

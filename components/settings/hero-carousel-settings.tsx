@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Trash2, Edit, ArrowUp, ArrowDown, ImageIcon, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { getAllProducts } from "@/lib/api"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type HeroSlide = {
   id: string
@@ -39,41 +41,73 @@ type CarouselItem = {
   active: boolean
 }
 
+type Product = {
+  id: string | number
+  name: string
+  description?: string
+  category?: string
+  price?: number
+  stock?: number
+  images?: string[]
+}
+
 export function HeroCarouselSettings() {
   const [isAddHeroOpen, setIsAddHeroOpen] = useState(false)
   const [isAddCarouselOpen, setIsAddCarouselOpen] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const heroSlides: HeroSlide[] = [
-    {
-      id: "H001",
-      title: "Pure Water, Pure Life",
-      subtitle: "Premium water delivery service for your home and office",
-      buttonText: "Order Now",
-      buttonLink: "/products",
-      image: "/placeholder.svg?height=400&width=800",
+  // Obtener productos de la API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true)
+        const response = await getAllProducts()
+        console.log("Productos obtenidos:", response)
+        
+        // Determinar dónde están los datos de productos
+        let productsData = response;
+        
+        // Si la respuesta es un objeto con una propiedad que contiene los productos
+        if (response && typeof response === 'object' && !Array.isArray(response)) {
+          // Buscar propiedades comunes donde podrían estar los productos
+          if (response.data) productsData = response.data;
+          else if (response.products) productsData = response.products;
+          else if (response.items) productsData = response.items;
+          else if (response.results) productsData = response.results;
+        }
+        
+        // Asegurarse de que productsData sea un array
+        if (!Array.isArray(productsData)) {
+          console.error("Los datos recibidos no son un array:", productsData);
+          setProducts([]);
+          return;
+        }
+        
+        setProducts(productsData);
+        
+        // Convertir productos a formato de carouselItems
+        const items = productsData.slice(0, 8).map((p: any) => ({
+          id: p.id_autoincrement || p.id || Math.random().toString(36).substring(2, 9),
+          title: p.name || "Sin nombre",
+          description: p.description || "Sin descripción",
+          image: p.images && p.images.length > 0 ? p.images[0] : "/placeholder.svg?height=300&width=300",
+          link: `/products/${p.id}`,
       active: true,
-    },
-    {
-      id: "H002",
-      title: "Subscribe & Save",
-      subtitle: "Get regular water deliveries and save up to 20%",
-      buttonText: "Subscribe",
-      buttonLink: "/subscription",
-      image: "/placeholder.svg?height=400&width=800",
-      active: true,
-    },
-    {
-      id: "H003",
-      title: "Water Dispensers",
-      subtitle: "High-quality water dispensers for your convenience",
-      buttonText: "Shop Dispensers",
-      buttonLink: "/products/dispensers",
-      image: "/placeholder.svg?height=400&width=800",
-      active: false,
-    },
-  ]
-
-  const carouselItems: CarouselItem[] = [
+        }));
+        
+        setCarouselItems(items);
+      } catch (error) {
+        console.error("Error al obtener productos:", error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los productos para el carousel",
+          variant: "destructive",
+        });
+        
+        // Si hay un error, usar datos de ejemplo
+        setCarouselItems([
     {
       id: "C001",
       title: "5 Gallon Water Bottle",
@@ -104,6 +138,43 @@ export function HeroCarouselSettings() {
       description: "Natural spring water with essential minerals",
       image: "/placeholder.svg?height=300&width=300",
       link: "/products/spring",
+            active: false,
+          }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchProducts();
+  }, []);
+
+  const heroSlides: HeroSlide[] = [
+    {
+      id: "H001",
+      title: "Agua Pura, Vida Pura",
+      subtitle: "Servicio premium de entrega de agua para tu hogar y oficina",
+      buttonText: "Ordenar Ahora",
+      buttonLink: "/products",
+      image: "/placeholder.svg?height=400&width=800",
+      active: true,
+    },
+    {
+      id: "H002",
+      title: "Suscríbete y Ahorra",
+      subtitle: "Recibe entregas regulares de agua y ahorra hasta un 20%",
+      buttonText: "Suscríbete",
+      buttonLink: "/subscription",
+      image: "/placeholder.svg?height=400&width=800",
+      active: true,
+    },
+    {
+      id: "H003",
+      title: "Dispensadores de Agua",
+      subtitle: "Dispensadores de agua de alta calidad para tu comodidad",
+      buttonText: "Comprar Dispensadores",
+      buttonLink: "/products/dispensers",
+      image: "/placeholder.svg?height=400&width=800",
       active: false,
     },
   ]
@@ -112,89 +183,89 @@ export function HeroCarouselSettings() {
     <div className="space-y-6">
       <Tabs defaultValue="hero">
         <TabsList className="grid grid-cols-2 mb-6">
-          <TabsTrigger value="hero">Hero Section</TabsTrigger>
-          <TabsTrigger value="carousel">Product Carousel</TabsTrigger>
+          <TabsTrigger value="hero">Sección Hero</TabsTrigger>
+          <TabsTrigger value="carousel">Carousel de Productos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hero">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Hero Section</CardTitle>
-                <CardDescription>Manage hero slides for your homepage</CardDescription>
+                <CardTitle>Sección Hero</CardTitle>
+                <CardDescription>Administra las diapositivas hero para tu página de inicio</CardDescription>
               </div>
               <Dialog open={isAddHeroOpen} onOpenChange={setIsAddHeroOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Hero Slide
+                    Añadir Diapositiva
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Add New Hero Slide</DialogTitle>
-                    <DialogDescription>Create a new hero slide for your homepage.</DialogDescription>
+                    <DialogTitle>Añadir Nueva Diapositiva Hero</DialogTitle>
+                    <DialogDescription>Crea una nueva diapositiva hero para tu página de inicio.</DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="hero-title">Title</Label>
-                        <Input id="hero-title" placeholder="Enter slide title" />
+                        <Label htmlFor="hero-title">Título</Label>
+                        <Input id="hero-title" placeholder="Ingresa el título de la diapositiva" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="hero-subtitle">Subtitle</Label>
-                        <Input id="hero-subtitle" placeholder="Enter slide subtitle" />
+                        <Label htmlFor="hero-subtitle">Subtítulo</Label>
+                        <Input id="hero-subtitle" placeholder="Ingresa el subtítulo de la diapositiva" />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="hero-button-text">Button Text</Label>
-                        <Input id="hero-button-text" placeholder="Enter button text" />
+                        <Label htmlFor="hero-button-text">Texto del Botón</Label>
+                        <Input id="hero-button-text" placeholder="Ingresa el texto del botón" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="hero-button-link">Button Link</Label>
-                        <Input id="hero-button-link" placeholder="Enter button link" />
+                        <Label htmlFor="hero-button-link">Enlace del Botón</Label>
+                        <Input id="hero-button-link" placeholder="Ingresa el enlace del botón" />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Background Image</Label>
+                      <Label>Imagen de Fondo</Label>
                       <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center">
                         <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
                         <p className="text-sm text-muted-foreground mb-2">
-                          Drag and drop an image here or click to browse
+                          Arrastra y suelta una imagen aquí o haz clic para explorar
                         </p>
                         <Input type="file" className="hidden" id="hero-image" />
                         <Button variant="secondary" asChild>
                           <label htmlFor="hero-image">
                             <Upload className="mr-2 h-4 w-4" />
-                            Upload Image
+                            Subir Imagen
                           </label>
                         </Button>
-                        <p className="text-xs text-muted-foreground mt-2">Recommended size: 1920x600 pixels</p>
+                        <p className="text-xs text-muted-foreground mt-2">Tamaño recomendado: 1920x600 píxeles</p>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-2">
                       <Switch id="hero-active" defaultChecked />
-                      <Label htmlFor="hero-active">Active</Label>
+                      <Label htmlFor="hero-active">Activo</Label>
                     </div>
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsAddHeroOpen(false)}>
-                      Cancel
+                      Cancelar
                     </Button>
                     <Button
                       onClick={() => {
                         toast({
-                          title: "Hero slide created",
-                          description: "The hero slide has been created successfully.",
+                          title: "Diapositiva hero creada",
+                          description: "La diapositiva hero ha sido creada exitosamente.",
                         })
                         setIsAddHeroOpen(false)
                       }}
                     >
-                      Create Slide
+                      Crear Diapositiva
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -219,9 +290,9 @@ export function HeroCarouselSettings() {
                             <p className="text-sm text-muted-foreground">{slide.subtitle}</p>
                             <div className="mt-2 flex items-center gap-2">
                               <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-md">
-                                Button: {slide.buttonText}
+                                Botón: {slide.buttonText}
                               </span>
-                              <span className="text-xs px-2 py-1 bg-muted rounded-md">Link: {slide.buttonLink}</span>
+                              <span className="text-xs px-2 py-1 bg-muted rounded-md">Enlace: {slide.buttonLink}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -259,76 +330,94 @@ export function HeroCarouselSettings() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Product Carousel</CardTitle>
-                <CardDescription>Manage product carousel items</CardDescription>
+                <CardTitle>Carousel de Productos</CardTitle>
+                <CardDescription>Administra los elementos del carousel de productos</CardDescription>
               </div>
               <Dialog open={isAddCarouselOpen} onOpenChange={setIsAddCarouselOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Carousel Item
+                    Añadir Elemento al Carousel
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Carousel Item</DialogTitle>
-                    <DialogDescription>Create a new product carousel item.</DialogDescription>
+                    <DialogTitle>Añadir Elemento al Carousel</DialogTitle>
+                    <DialogDescription>Crea un nuevo elemento para el carousel de productos.</DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="carousel-title">Title</Label>
-                      <Input id="carousel-title" placeholder="Enter item title" />
+                      <Label htmlFor="carousel-title">Título</Label>
+                      <Input id="carousel-title" placeholder="Ingresa el título del elemento" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="carousel-description">Description</Label>
-                      <Textarea id="carousel-description" placeholder="Enter item description" />
+                      <Label htmlFor="carousel-description">Descripción</Label>
+                      <Textarea id="carousel-description" placeholder="Ingresa la descripción del elemento" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="carousel-link">Link</Label>
-                      <Input id="carousel-link" placeholder="Enter item link" />
+                      <Label htmlFor="carousel-link">Enlace</Label>
+                      <Input id="carousel-link" placeholder="Ingresa el enlace del elemento" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Product Image</Label>
+                      <Label>Imagen del Producto</Label>
                       <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center">
                         <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
                         <p className="text-sm text-muted-foreground mb-2">
-                          Drag and drop an image here or click to browse
+                          Arrastra y suelta una imagen aquí o haz clic para explorar
                         </p>
                         <Input type="file" className="hidden" id="carousel-image" />
                         <Button variant="secondary" asChild>
                           <label htmlFor="carousel-image">
                             <Upload className="mr-2 h-4 w-4" />
-                            Upload Image
+                            Subir Imagen
                           </label>
                         </Button>
-                        <p className="text-xs text-muted-foreground mt-2">Recommended size: 600x600 pixels</p>
+                        <p className="text-xs text-muted-foreground mt-2">Tamaño recomendado: 600x600 píxeles</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Switch id="carousel-active" defaultChecked />
-                      <Label htmlFor="carousel-active">Active</Label>
+                      <Label htmlFor="carousel-active">Activo</Label>
                     </div>
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsAddCarouselOpen(false)}>
-                      Cancel
+                      Cancelar
                     </Button>
                     <Button
                       onClick={() => {
                         toast({
-                          title: "Carousel item created",
-                          description: "The carousel item has been created successfully.",
+                          title: "Elemento de carousel creado",
+                          description: "El elemento del carousel ha sido creado exitosamente.",
                         })
                         setIsAddCarouselOpen(false)
                       }}
                     >
-                      Create Item
+                      Crear Elemento
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </CardHeader>
             <CardContent>
+              {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Array(4).fill(0).map((_, i) => (
+                    <Card key={i} className="overflow-hidden">
+                      <Skeleton className="aspect-square" />
+                      <CardContent className="p-4">
+                        <Skeleton className="h-4 w-3/4 mb-2" />
+                        <Skeleton className="h-3 w-full mb-2" />
+                        <Skeleton className="h-3 w-full mb-4" />
+                        <div className="flex justify-end">
+                          <Skeleton className="h-8 w-20 mr-2" />
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {carouselItems.map((item) => (
                   <Card key={item.id} className="overflow-hidden">
@@ -344,24 +433,25 @@ export function HeroCarouselSettings() {
                         <div>
                           <h3 className="font-medium">{item.title}</h3>
                           <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Link: {item.link}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Enlace: {item.link}</p>
                         </div>
                         <Switch checked={item.active} />
                       </div>
                       <div className="mt-4 flex items-center justify-end gap-2">
                         <Button variant="ghost" size="sm">
                           <Edit className="h-4 w-4 mr-2" />
-                          Edit
+                            Editar
                         </Button>
                         <Button variant="ghost" size="sm" className="text-destructive">
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                            Eliminar
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

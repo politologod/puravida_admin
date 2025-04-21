@@ -102,7 +102,7 @@ export function UserForm({ user, idUser }: UserFormProps) {
       }
 
       if (user) {
-        await updateUser(user.id, userData)
+        await updateUser(idUser, userData)
         toast({ title: "Usuario actualizado exitosamente" })
       } else {
         await createUser(userData)
@@ -263,7 +263,7 @@ export function UserForm({ user, idUser }: UserFormProps) {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="admin">Administrador</SelectItem>
-                              <SelectItem value="vendor">Personal</SelectItem>
+                              <SelectItem value="vendor">Vendedor</SelectItem>
                               <SelectItem value="customer">Cliente</SelectItem>
                             </SelectContent>
                           </Select>

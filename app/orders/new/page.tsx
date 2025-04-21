@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { SidebarNav } from "../../../components/sidebar-nav"
 import { Header } from "../../../components/header"
@@ -41,78 +41,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-
-// Sample products data
-const products = [
-  {
-    id: "1",
-    name: "Puravida 5 Gallon Water Bottle",
-    price: 15.99,
-    image: "/placeholder.svg?height=64&width=64",
-    category: "Bottled Water",
-    stock: 45,
-  },
-  {
-    id: "2",
-    name: "Puravida Water Refill Service (5 Gallon)",
-    price: 8.99,
-    image: "/placeholder.svg?height=64&width=64",
-    category: "Service",
-    stock: "Unlimited",
-  },
-  {
-    id: "3",
-    name: "Puravida 1 Gallon Purified Water",
-    price: 4.99,
-    image: "/placeholder.svg?height=64&width=64",
-    category: "Bottled Water",
-    stock: 120,
-  },
-  {
-    id: "4",
-    name: "Water Bottle Carrier",
-    price: 5.0,
-    image: "/placeholder.svg?height=64&width=64",
-    category: "Accessory",
-    stock: 30,
-  },
-  {
-    id: "5",
-    name: "Water Dispenser - Floor Standing",
-    price: 89.99,
-    image: "/placeholder.svg?height=64&width=64",
-    category: "Accessory",
-    stock: 12,
-  },
-]
-
-// Sample customers data
-const customers = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "+1 (555) 123-4567",
-    address: "123 Main St, Anytown, USA",
-    avatar: "/placeholder.svg?height=40&width=40",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    phone: "+1 (555) 987-6543",
-    address: "456 Oak St, Somewhere, USA",
-    avatar: "/placeholder.svg?height=40&width=40",
-  },
-  {
-    id: "3",
-    name: "Robert Johnson",
-    email: "robert@example.com",
-    phone: "+1 (555) 456-7890",
-    address: "789 Pine St, Nowhere, USA",
-    avatar: "/placeholder.svg?height=40&width=40",
-  },
-]
+import { createOrder, getAllProducts, getUser } from "@/lib/api"
 
 export default function NewOrderPage() {
   const router = useRouter()
@@ -123,10 +52,95 @@ export default function NewOrderPage() {
   const [deliveryMethod, setDeliveryMethod] = useState("pickup")
   const [paymentMethod, setPaymentMethod] = useState("credit_card")
   const [notes, setNotes] = useState("")
+  const [products, setProducts] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const subtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0)
   const tax = subtotal * 0.05 // 5% tax
   const total = subtotal + tax
+
+  // Cargar productos y clientes al montar el componente
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Obtener productos
+        const productsResponse = await getAllProducts()
+        console.log("Productos obtenidos:", productsResponse)
+        
+        let productsData = productsResponse;
+        if (productsResponse && typeof productsResponse === 'object' && !Array.isArray(productsResponse)) {
+          if (productsResponse.data) productsData = productsResponse.data;
+          else if (productsResponse.products) productsData = productsResponse.products;
+          else if (productsResponse.items) productsData = productsResponse.items;
+          else if (productsResponse.results) productsData = productsResponse.results;
+        }
+        
+        if (!Array.isArray(productsData)) {
+          console.error("Los datos de productos recibidos no son un array:", productsData);
+          setProducts([]);
+        } else {
+          // Mapear y normalizar los datos de productos
+          const parsedProducts = productsData.map((product: any) => ({
+            id: product.id || product._id || Math.random().toString(36).substring(2, 9),
+            name: product.name || "Producto sin nombre",
+            price: product.price || 0,
+            image: product.images && product.images.length > 0 ? product.images[0] : "/placeholder.svg?height=64&width=64",
+            category: product.category || "Sin categoría",
+            stock: product.stock || 0,
+          }))
+          
+          setProducts(parsedProducts)
+        }
+        
+        // Obtener clientes (usuarios)
+        const usersResponse = await getUser()
+        console.log("Usuarios obtenidos:", usersResponse)
+        
+        let usersData = usersResponse;
+        if (usersResponse && typeof usersResponse === 'object' && !Array.isArray(usersResponse)) {
+          if (usersResponse.data) usersData = usersResponse.data;
+          else if (usersResponse.users) usersData = usersResponse.users;
+          else if (usersResponse.items) usersData = usersResponse.items;
+          else if (usersResponse.results) usersData = usersResponse.results;
+        }
+        
+        if (!Array.isArray(usersData)) {
+          console.error("Los datos de usuarios recibidos no son un array:", usersData);
+          setCustomers([]);
+        } else {
+          // Mapear y normalizar los datos de usuarios
+          const parsedUsers = usersData.map((user: any) => ({
+            id: user.id || user._id || Math.random().toString(36).substring(2, 9),
+            name: user.name || "Usuario sin nombre",
+            email: user.email || "sin@email.com",
+            phone: user.phone || "Sin teléfono",
+            address: user.address || "Sin dirección",
+            avatar: user.profilePicture || "/placeholder.svg?height=40&width=40",
+          }))
+          
+          setCustomers(parsedUsers)
+        }
+        
+        setError(null)
+      } catch (err) {
+        console.error('Error al cargar datos:', err)
+        setError('Error al cargar los datos necesarios')
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los datos necesarios",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const addToCart = (product: any) => {
     const existingItem = cartItems.find((item) => item.id === product.id)
@@ -172,11 +186,11 @@ export default function NewOrderPage() {
     })
   }
 
-  const handleCreateOrder = () => {
+  const handleCreateOrder = async () => {
     if (!selectedCustomer) {
       toast({
-        title: "Customer required",
-        description: "Please select a customer for this order.",
+        title: "Cliente requerido",
+        description: "Por favor, selecciona un cliente para esta orden.",
         variant: "destructive",
       })
       return
@@ -184,19 +198,57 @@ export default function NewOrderPage() {
 
     if (cartItems.length === 0) {
       toast({
-        title: "Empty order",
-        description: "Please add at least one product to the order.",
+        title: "Orden vacía",
+        description: "Por favor, agrega al menos un producto a la orden.",
         variant: "destructive",
       })
       return
     }
 
-    toast({
-      title: "Order created",
-      description: "The order has been created successfully.",
-    })
+    try {
+      // Crear estructura de datos para la API
+      const orderData = {
+        customer: {
+          id: selectedCustomer.id,
+          name: selectedCustomer.name,
+          email: selectedCustomer.email,
+          phone: selectedCustomer.phone,
+          address: selectedCustomer.address,
+        },
+        items: cartItems.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name,
+        })),
+        total: total,
+        paymentMethod: paymentMethod,
+        paymentStatus: "unpaid" as "unpaid" | "paid" | "refunded",
+        status: "pending" as "pending" | "processing" | "delivered" | "cancelled",
+        deliveryMethod: deliveryMethod as "pickup" | "delivery" | "refill",
+        deliveryAddress: deliveryMethod === "delivery" ? selectedCustomer.address : "",
+        notes: notes,
+      };
 
-    router.push("/orders")
+      // Llamar a la API para crear la orden
+      const response = await createOrder(orderData);
+      
+      // Mostrar mensaje de éxito
+    toast({
+        title: "Orden creada",
+        description: "La orden ha sido creada exitosamente.",
+      });
+      
+      // Redireccionar a la página de órdenes
+      router.push("/orders");
+    } catch (error) {
+      console.error("Error al crear la orden:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la orden. Por favor, intenta de nuevo.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
