@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { SidebarNav } from "../../components/sidebar-nav"
 import { Header } from "../../components/header"
 import { SettingsSidebar } from "../../components/settings/settings-sidebar"
@@ -14,7 +15,16 @@ import { EcommerceSettings } from "../../components/settings/ecommerce-settings"
 import { TaxesSettings } from "../../components/settings/taxes-settings"
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("profile")
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const [activeTab, setActiveTab] = useState(tabParam || "profile")
+  
+  // Actualizar la pestaña activa si cambia el parámetro de URL
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
 
   return (
     <div className="flex h-screen bg-background">

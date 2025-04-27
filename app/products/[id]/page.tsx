@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
-import { getProductById, getProductTaxes, deleteProduct } from "@/lib/api"
+import { getProductById, getProductTaxes, deleteProduct, getAllTaxes } from "@/lib/api"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatPrice } from "@/lib/utils"
 
@@ -102,14 +102,80 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           else if (data.items) taxesData = data.items;
         }
         
+        // Si no hay impuestos o el array está vacío, cargar impuestos generales aplicables
+        if (!Array.isArray(taxesData) || taxesData.length === 0) {
+          console.log("No se encontraron impuestos específicos para el producto, intentando cargar impuestos generales")
+          
+          try {
+            const generalTaxesResponse = await getAllTaxes()
+            console.log("Respuesta de impuestos generales:", generalTaxesResponse)
+            
+            if (generalTaxesResponse && generalTaxesResponse.data) {
+              // Filtrar solo impuestos activos que aplican a todos los productos
+              const applicableTaxes = generalTaxesResponse.data
+                .filter((tax: any) => tax.active && tax.applies_to_all)
+                .map((tax: any) => ({
+                  id: tax.id,
+                  name: tax.name,
+                  code: tax.code,
+                  rate: tax.rate,
+                  is_percentage: tax.is_percentage,
+                  is_exempt: false, // Por defecto no exento
+                  custom_rate: undefined // Sin tasa personalizada
+                }));
+              
+              console.log("Impuestos generales aplicables:", applicableTaxes)
+              setProductTaxes(applicableTaxes)
+              return;
+            }
+          } catch (generalTaxError) {
+            console.error("Error al cargar impuestos generales:", generalTaxError)
+          }
+        }
+        
         if (Array.isArray(taxesData)) {
-          setProductTaxes(taxesData)
+          // Normalizar formato de impuestos para asegurar consistencia
+          const normalizedTaxes = taxesData.map((tax: any) => ({
+            id: tax.id || tax.tax_id,
+            name: tax.name || "Impuesto",
+            code: tax.code || "TAX",
+            rate: typeof tax.rate === 'number' ? tax.rate : 0,
+            is_percentage: tax.is_percentage !== undefined ? tax.is_percentage : true,
+            is_exempt: tax.is_exempt !== undefined ? tax.is_exempt : false,
+            custom_rate: tax.custom_rate
+          }));
+          
+          console.log("Impuestos normalizados:", normalizedTaxes)
+          setProductTaxes(normalizedTaxes)
         } else {
+          console.warn("No se pudieron procesar los datos de impuestos:", taxesData)
           setProductTaxes([])
         }
       } catch (err) {
         console.error("Error al cargar impuestos del producto:", err)
-        // No mostramos toast para los impuestos, solo los registramos en consola
+        // Intentar cargar impuestos generales como respaldo
+        try {
+          const generalTaxesResponse = await getAllTaxes()
+          if (generalTaxesResponse && generalTaxesResponse.data) {
+            const defaultTaxes = generalTaxesResponse.data
+              .filter((tax: any) => tax.active)
+              .map((tax: any) => ({
+                id: tax.id,
+                name: tax.name,
+                code: tax.code,
+                rate: tax.rate,
+                is_percentage: tax.is_percentage,
+                is_exempt: false,
+                custom_rate: undefined
+              }));
+            
+            console.log("Impuestos por defecto como respaldo:", defaultTaxes)
+            setProductTaxes(defaultTaxes)
+            return;
+          }
+        } catch (fallbackError) {
+          console.error("Error también en la carga de respaldo:", fallbackError)
+        }
         setProductTaxes([])
       } finally {
         setTaxesLoading(false)

@@ -549,293 +549,239 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-10">
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => router.push("/products")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Volver a Productos
+        <Button 
+          variant="outline" 
+          className="gap-1" 
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="h-4 w-4" /> Volver
         </Button>
         <div className="flex gap-2">
-          {product?.id && (
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar Producto
+          {product && product.id && (
+            <Button 
+              onClick={handleDelete} 
+              variant="destructive" 
+              className="gap-1"
+            >
+              <Trash2 className="h-4 w-4" /> Eliminar
             </Button>
           )}
-          <Button onClick={form.handleSubmit(onSubmit)}>
-            <Save className="mr-2 h-4 w-4" />
-            Guardar Producto
+          <Button 
+            onClick={form.handleSubmit(onSubmit)} 
+            className="gap-1"
+          >
+            <Save className="h-4 w-4" /> Guardar
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="inventory">Inventario y Precios</TabsTrigger>
-              <TabsTrigger value="taxes">Impuestos</TabsTrigger>
-              <TabsTrigger value="availability">Disponibilidad</TabsTrigger>
-            </TabsList>
+      <Form {...form}>
+        <Tabs defaultValue="general" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="general" className="flex-1">General</TabsTrigger>
+            <TabsTrigger value="images" className="flex-1">Imágenes</TabsTrigger>
+            <TabsTrigger value="attributes" className="flex-1">Atributos</TabsTrigger>
+            <TabsTrigger value="taxes" className="flex-1">Impuestos</TabsTrigger>
+            <TabsTrigger value="inventory" className="flex-1">Inventario</TabsTrigger>
+          </TabsList>
+          
+          {/* Contenido de la pestaña General */}
+          <TabsContent value="general">
+            <Card>
+              <CardHeader>
+                <CardTitle>Información General</CardTitle>
+                <CardDescription>
+                  Información básica del producto
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del Producto</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ingrese nombre del producto" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <TabsContent value="general" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Información General</CardTitle>
-                      <CardDescription>Información básica del producto.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nombre del Producto</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ingrese nombre del producto" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                <FormField
+                  control={form.control}
+                  name="sku"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SKU</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ingrese SKU" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                      <FormField
-                        control={form.control}
-                        name="sku"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SKU</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ingrese SKU" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descripción</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Ingrese descripción del producto" className="min-h-32" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                      <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Descripción</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Ingrese descripción del producto" className="min-h-32" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="category"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Categoría</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccione una categoría" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="bottled">Agua Embotellada</SelectItem>
-                                <SelectItem value="refill">Recarga de Agua</SelectItem>
-                                <SelectItem value="accessories">Accesorios</SelectItem>
-                                <SelectItem value="services">Servicios</SelectItem>
-                                <SelectItem value="promotions">Promociones</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="inventory" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Inventario y Precios</CardTitle>
-                      <CardDescription>Administrar niveles de inventario e información de precios.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="price"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Precio de Venta ($)</FormLabel>
-                              <FormDescription>Precio al que se venderá el producto</FormDescription>
-                              <FormControl>
-                                <Input type="number" step="0.01" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="cost"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Costo de Adquisición ($)</FormLabel>
-                              <FormDescription>Lo que cuesta adquirir el producto</FormDescription>
-                              <FormControl>
-                                <Input type="number" step="0.01" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="stock"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cantidad en Stock</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="taxable"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Sujeto a Impuestos</FormLabel>
-                              <FormDescription>Aplicar impuestos a este producto</FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="taxes" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Configuración de Impuestos</CardTitle>
-                      <CardDescription>Configura los impuestos aplicables a este producto</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="taxable"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Producto Gravable</FormLabel>
-                              <FormDescription>Este producto está sujeto a impuestos</FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoría</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccione una categoría" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="bottled">Agua Embotellada</SelectItem>
+                          <SelectItem value="refill">Recarga de Agua</SelectItem>
+                          <SelectItem value="accessories">Accesorios</SelectItem>
+                          <SelectItem value="services">Servicios</SelectItem>
+                          <SelectItem value="promotions">Promociones</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Contenido de la pestaña de impuestos */}
+          <TabsContent value="taxes">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuración de Impuestos</CardTitle>
+                <CardDescription>
+                  Administra los impuestos aplicables a este producto
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 py-4">
+                  <div className="flex items-center gap-4">
+                    <FormField
+                      control={form.control}
+                      name="taxable"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 w-full">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Producto Gravable</FormLabel>
+                            <FormDescription>
+                              Define si este producto está sujeto a impuestos
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  {form.watch("taxable") && (
+                    <>
+                      <Separator className="my-2" />
+                      
                       {isLoadingTaxes ? (
-                        <div className="py-4 text-center">
-                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                          <p className="text-sm text-muted-foreground mt-2">Cargando impuestos...</p>
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-muted-foreground">Cargando impuestos...</span>
                         </div>
                       ) : taxes.length === 0 ? (
-                        <div className="py-4 text-center border rounded-md">
-                          <p className="text-sm text-muted-foreground">No hay impuestos configurados</p>
-                          <Button 
-                            variant="link" 
-                            onClick={() => router.push("/settings/taxes")}
-                            className="mt-2"
+                        <div className="rounded-lg border border-dashed p-6 text-center">
+                          <h3 className="text-lg font-medium">No hay impuestos configurados</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Debes crear impuestos antes de poder asignarlos a productos
+                          </p>
+                          <Button
+                            variant="outline"
+                            className="mt-4"
+                            onClick={() => router.push('/settings/taxes')}
                           >
-                            Ir a configuración de impuestos
+                            Ir a Configuración de Impuestos
                           </Button>
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <h3 className="text-sm font-medium">Impuestos aplicables</h3>
+                          <h3 className="text-lg font-medium">Impuestos Aplicables</h3>
                           
-                          {taxes.map(tax => {
-                            const isApplied = productTaxes.some(pt => pt.tax_id === tax.id);
+                          {taxes.map((tax) => {
+                            // Buscar si este impuesto está en la lista de impuestos del producto
                             const productTax = productTaxes.find(pt => pt.tax_id === tax.id);
+                            const isApplied = !!productTax;
+                            const isExempt = productTax?.is_exempt || false;
                             
                             return (
-                              <div key={tax.id} className="border rounded-md p-4 space-y-3">
+                              <div key={tax.id} className="rounded-lg border p-4">
                                 <div className="flex items-center justify-between">
-                                  <div>
-                                    <h4 className="font-medium">{tax.name} ({tax.code})</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      Tasa: {tax.rate}% {tax.applies_to_all ? '(Aplica por defecto)' : ''}
-                                    </p>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{tax.name} ({tax.code})</span>
+                                    <span className="text-sm text-muted-foreground">
+                                      Tasa: {tax.rate}{tax.is_percentage ? '%' : ''}
+                                    </span>
                                   </div>
-                                  <Switch 
-                                    checked={isApplied} 
-                                    onCheckedChange={(checked) => handleTaxChange(tax.id, checked)}
-                                    disabled={tax.applies_to_all}
-                                  />
+                                  
+                                  <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2">
+                                      <Switch
+                                        id={`tax-${tax.id}`}
+                                        checked={isApplied}
+                                        onCheckedChange={(checked) => handleTaxChange(tax.id, checked)}
+                                      />
+                                      <Label htmlFor={`tax-${tax.id}`}>Aplicar</Label>
+                                    </div>
+                                  </div>
                                 </div>
                                 
                                 {isApplied && (
-                                  <div className="space-y-4 border-t pt-3">
-                                    <div className="flex items-center justify-between">
-                                      <div className="space-y-0.5">
-                                        <Label>Exento de este impuesto</Label>
-                                        <p className="text-xs text-muted-foreground">
-                                          Este producto no pagará este impuesto
-                                        </p>
-                                      </div>
-                                      <Switch 
-                                        checked={productTax?.is_exempt || false} 
+                                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l-2 border-l-muted">
+                                    <div className="flex items-center space-x-2">
+                                      <Switch
+                                        id={`exempt-${tax.id}`}
+                                        checked={isExempt}
                                         onCheckedChange={(checked) => handleExemptChange(tax.id, checked)}
                                       />
+                                      <Label htmlFor={`exempt-${tax.id}`}>Exento</Label>
                                     </div>
                                     
-                                    {!productTax?.is_exempt && (
-                                      <div>
-                                        <Label htmlFor={`custom-rate-${tax.id}`}>Tasa personalizada (%)</Label>
-                                        <div className="flex items-center mt-1.5 space-x-2">
-                                          <Input 
-                                            id={`custom-rate-${tax.id}`}
-                                            type="number" 
-                                            step="0.01"
-                                            placeholder={`Tasa estándar (${tax.rate}%)`}
-                                            value={productTax?.custom_rate !== undefined ? productTax.custom_rate : ''}
-                                            onChange={(e) => {
-                                              const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                                              handleCustomRateChange(tax.id, value);
-                                            }}
-                                          />
-                                          {productTax?.custom_rate !== undefined && (
-                                            <Button 
-                                              variant="ghost" 
-                                              size="sm"
-                                              onClick={() => handleCustomRateChange(tax.id, undefined)}
-                                            >
-                                              <X className="h-4 w-4" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          Deja en blanco para usar la tasa estándar
-                                        </p>
+                                    {!isExempt && tax.is_percentage && (
+                                      <div className="flex items-center space-x-2">
+                                        <Label htmlFor={`custom-${tax.id}`}>Tasa personalizada:</Label>
+                                        <Input
+                                          id={`custom-${tax.id}`}
+                                          type="number"
+                                          placeholder={`Tasa por defecto (${tax.rate}%)`}
+                                          className="w-32"
+                                          value={productTax?.custom_rate !== undefined ? productTax.custom_rate : ''}
+                                          onChange={(e) => {
+                                            const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                            handleCustomRateChange(tax.id, value);
+                                          }}
+                                        />
+                                        <span>%</span>
                                       </div>
                                     )}
                                   </div>
@@ -845,177 +791,17 @@ export function ProductForm({ product }: ProductFormProps) {
                           })}
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="availability" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Disponibilidad</CardTitle>
-                      <CardDescription>Controle dónde está disponible este producto.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="availableInPos"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Disponible en POS</FormLabel>
-                              <FormDescription>Hacer que este producto esté disponible en el sistema de punto de venta</FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="availableOnline"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Disponible Online</FormLabel>
-                              <FormDescription>Hacer que este producto esté disponible en la tienda en línea</FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="featured"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Producto Destacado</FormLabel>
-                              <FormDescription>Destacar este producto en secciones especiales</FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </form>
-            </Form>
-          </Tabs>
-        </div>
-
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Imágenes del Producto</CardTitle>
-              <CardDescription>Sube y administra imágenes del producto</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedImage !== null && (
-                <div className="aspect-square rounded-lg overflow-hidden border relative">
-                  <img
-                    src={images[selectedImage]?.url || "/placeholder.svg"}
-                    alt="Producto seleccionado"
-                    className="w-full h-full object-cover"
-                  />
-                  {images[selectedImage]?.isUploading && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <Loader2 className="h-8 w-8 text-white animate-spin" />
-                    </div>
+                    </>
                   )}
                 </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-2">
-                {images.map((image, index) => (
-                  <div key={index} className="relative border rounded-md cursor-pointer overflow-hidden aspect-square">
-                    <img
-                      src={image.url || "/placeholder.svg"}
-                      alt={`Producto ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      onClick={() => setSelectedImage(index)}
-                    />
-                    <div className="absolute top-1 right-1">
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="h-6 w-6 rounded-full"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeImage(index)
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    {image.isUploading && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 text-white animate-spin" />
-                      </div>
-                    )}
-                    {selectedImage === index && (
-                      <div className="absolute bottom-1 right-1 bg-primary text-white rounded-full p-1">
-                        <Check className="h-3 w-3" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <Separator />
-
-              <div
-                className={`file-drop-area ${isDragging ? "active" : ""} border-2 border-dashed rounded-lg p-6 text-center ${isUploading ? "opacity-50" : ""}`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <ImageIcon className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Arrastra y suelta imágenes aquí o haz clic para seleccionar
-                </p>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  id="image-upload"
-                  onChange={handleImageUpload}
-                  ref={fileInputRef}
-                  disabled={isUploading}
-                />
-                <Label htmlFor="image-upload" asChild>
-                  <Button variant="secondary" disabled={isUploading}>
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Subiendo...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Subir Imágenes
-                      </>
-                    )}
-                  </Button>
-                </Label>
-              </div>
-              
-              <p className="text-xs text-muted-foreground mt-2">
-                Puedes subir hasta 5 imágenes. La primera imagen será la principal.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* ... existing code ... */}
+        </Tabs>
+      </Form>
     </div>
-  )
+  );
 }
 
