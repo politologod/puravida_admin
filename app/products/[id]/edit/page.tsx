@@ -146,76 +146,85 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     const fetchProductTaxes = async () => {
       try {
         setTaxesLoading(true)
-        // Primera opción: intentar obtener impuestos específicos del producto
+        
+        // Primero, obtener todos los impuestos disponibles en el sistema
+        const allTaxesResponse = await getAllTaxes();
+        console.log("Todos los impuestos disponibles:", allTaxesResponse);
+        
+        let allTaxes: any[] = [];
+        if (allTaxesResponse && allTaxesResponse.data) {
+          // Filtrar solo impuestos activos
+          allTaxes = allTaxesResponse.data.filter((tax: any) => tax.active);
+        }
+        
+        if (allTaxes.length === 0) {
+          console.log("No se encontraron impuestos configurados en el sistema");
+          setProductTaxes([]);
+          setTaxesLoading(false);
+          return;
+        }
+        
+        // Ahora, obtener impuestos específicos del producto
         let data = await getProductTaxes(params.id)
         console.log("Impuestos del producto recibidos:", data)
         
         // Procesar los datos dependiendo de la estructura de la respuesta
-        let taxesData = data;
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          if (data.data) taxesData = data.data;
-          else if (data.taxes) taxesData = data.taxes;
-          else if (data.items) taxesData = data.items;
-        }
-        
-        // Si no hay datos o el array está vacío, intentar obtener impuestos generales
-        if (!Array.isArray(taxesData) || taxesData.length === 0) {
-          console.log("No se encontraron impuestos específicos, intentando cargar impuestos generales")
-          
-          try {
-            const generalTaxesResponse = await getAllTaxes()
-            console.log("Respuesta de impuestos generales:", generalTaxesResponse)
-            
-            if (generalTaxesResponse && generalTaxesResponse.data) {
-              // Filtrar solo impuestos activos que aplican a todos los productos
-              const applicableTaxes = generalTaxesResponse.data
-                .filter((tax: any) => tax.active && tax.applies_to_all)
-                .map((tax: any) => ({
-                  id: tax.id,
-                  name: tax.name,
-                  code: tax.code,
-                  rate: tax.rate,
-                  is_percentage: tax.is_percentage,
-                  is_exempt: false, // Por defecto no exento
-                  custom_rate: undefined // Sin tasa personalizada
-                }));
-              
-              console.log("Impuestos aplicables generados:", applicableTaxes)
-              setProductTaxes(applicableTaxes)
-              return;
-            }
-          } catch (generalTaxError) {
-            console.error("Error al cargar impuestos generales:", generalTaxError)
+        let productSpecificTaxes: any[] = [];
+        if (data) {
+          if (typeof data === 'object' && !Array.isArray(data)) {
+            if (data.data) productSpecificTaxes = data.data;
+            else if (data.taxes) productSpecificTaxes = data.taxes;
+            else if (data.items) productSpecificTaxes = data.items;
+          } else if (Array.isArray(data)) {
+            productSpecificTaxes = data;
           }
         }
         
-        if (Array.isArray(taxesData)) {
-          // Asegurarse de que cada impuesto tenga las propiedades necesarias
-          const normalizedTaxes = taxesData.map(tax => ({
-            id: tax.id || tax.tax_id,
-            name: tax.name || "Impuesto",
-            code: tax.code || "TAX",
-            rate: typeof tax.rate === 'number' ? tax.rate : 0,
-            is_percentage: tax.is_percentage !== undefined ? tax.is_percentage : true,
-            is_exempt: tax.is_exempt !== undefined ? tax.is_exempt : false,
-            custom_rate: tax.custom_rate
-          }));
-          
-          console.log("Impuestos normalizados:", normalizedTaxes)
-          setProductTaxes(normalizedTaxes)
-        } else {
-          console.warn("No se pudieron procesar los datos de impuestos:", taxesData)
-          setProductTaxes([])
-        }
-      } catch (err) {
-        console.error("Error al cargar impuestos del producto:", err)
+        console.log("Impuestos específicos del producto procesados:", productSpecificTaxes);
         
-        // Como respaldo, intentar cargar impuestos generales
+        // Combinar impuestos generales con configuraciones específicas del producto
+        const combinedTaxes = allTaxes.map(generalTax => {
+          // Buscar si este impuesto tiene una configuración específica para este producto
+          const specificConfig = productSpecificTaxes.find(
+            (pt: any) => pt.id === generalTax.id || pt.tax_id === generalTax.id
+          );
+          
+          if (specificConfig) {
+            // Si tiene configuración específica, usar esos valores
+            return {
+              id: generalTax.id,
+              name: generalTax.name,
+              code: generalTax.code,
+              rate: generalTax.rate,
+              is_percentage: generalTax.is_percentage,
+              is_exempt: specificConfig.is_exempt || false,
+              custom_rate: specificConfig.custom_rate
+            };
+          } else {
+            // Si no tiene configuración específica, usar valores por defecto
+            // Los impuestos que aplican a todos se incluyen automáticamente
+            return {
+              id: generalTax.id,
+              name: generalTax.name,
+              code: generalTax.code,
+              rate: generalTax.rate,
+              is_percentage: generalTax.is_percentage,
+              is_exempt: false, // Por defecto no está exento
+              custom_rate: undefined // Sin tasa personalizada
+            };
+          }
+        });
+        
+        console.log("Impuestos combinados para mostrar:", combinedTaxes);
+        setProductTaxes(combinedTaxes);
+      } catch (err) {
+        console.error("Error al cargar impuestos:", err);
+        
+        // Intentar cargar solo los impuestos generales como respaldo
         try {
-          const generalTaxesResponse = await getAllTaxes()
-          if (generalTaxesResponse && generalTaxesResponse.data) {
-            // Crear una lista de impuestos por defecto
-            const defaultTaxes = generalTaxesResponse.data
+          const fallbackResponse = await getAllTaxes();
+          if (fallbackResponse && fallbackResponse.data) {
+            const defaultTaxes = fallbackResponse.data
               .filter((tax: any) => tax.active)
               .map((tax: any) => ({
                 id: tax.id,
@@ -227,19 +236,19 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 custom_rate: undefined
               }));
             
-            console.log("Impuestos por defecto generados como respaldo:", defaultTaxes)
-            setProductTaxes(defaultTaxes)
-            return;
+            console.log("Impuestos generales cargados como respaldo:", defaultTaxes);
+            setProductTaxes(defaultTaxes);
+          } else {
+            setProductTaxes([]);
           }
-        } catch (fallbackError) {
-          console.error("Error también en la carga de respaldo:", fallbackError)
+        } catch (fallbackErr) {
+          console.error("Error también en la carga de respaldo:", fallbackErr);
+          setProductTaxes([]);
         }
-        
-        setProductTaxes([])
       } finally {
-        setTaxesLoading(false)
+        setTaxesLoading(false);
       }
-    }
+    };
 
     const fetchCategories = async () => {
       try {
