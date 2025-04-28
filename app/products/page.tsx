@@ -47,6 +47,17 @@ type Category = {
   id: string | number
   name: string
   description?: string
+  metaTitle?: string
+  metaDescription?: string
+  seoKeywords?: string
+}
+
+type NewCategory = {
+  name: string
+  description: string
+  metaTitle?: string
+  metaDescription?: string
+  seoKeywords?: string
 }
 
 function ProductStats() {
@@ -163,7 +174,7 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("products")
   const [categories, setCategories] = useState<Category[]>([])
-  const [newCategory, setNewCategory] = useState({ name: "", description: "" })
+  const [newCategory, setNewCategory] = useState<NewCategory>({ name: "", description: "" })
   const [editCategory, setEditCategory] = useState<Category | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentFilters, setCurrentFilters] = useState(null)
@@ -412,7 +423,10 @@ export default function ProductsPage() {
         // Actualizar categoría existente
         await updateCategory(editCategory.id.toString(), {
           name: newCategory.name,
-          description: newCategory.description
+          description: newCategory.description,
+          metaTitle: newCategory.metaTitle,
+          metaDescription: newCategory.metaDescription,
+          seoKeywords: newCategory.seoKeywords
         })
         toast({
           title: "Categoría actualizada",
@@ -422,7 +436,10 @@ export default function ProductsPage() {
         // Crear nueva categoría
         await createCategory({
           name: newCategory.name,
-          description: newCategory.description
+          description: newCategory.description,
+          metaTitle: newCategory.metaTitle,
+          metaDescription: newCategory.metaDescription,
+          seoKeywords: newCategory.seoKeywords
         })
         toast({
           title: "Categoría creada",
@@ -445,7 +462,7 @@ export default function ProductsPage() {
       }
       
       // Limpiar formulario
-      setNewCategory({ name: "", description: "" })
+      setNewCategory({ name: "", description: "", metaTitle: "", metaDescription: "", seoKeywords: "" })
       setEditCategory(null)
       setIsDialogOpen(false)
     } catch (err) {
@@ -462,7 +479,10 @@ export default function ProductsPage() {
     setEditCategory(category)
     setNewCategory({
       name: category.name,
-      description: category.description || ""
+      description: category.description || "",
+      metaTitle: category.metaTitle || "",
+      metaDescription: category.metaDescription || "",
+      seoKeywords: category.seoKeywords || ""
     })
     setIsDialogOpen(true)
   }
@@ -733,39 +753,93 @@ export default function ProductsPage() {
                   <DialogTrigger asChild>
                     <Button onClick={() => {
                       setEditCategory(null)
-                      setNewCategory({ name: "", description: "" })
+                      setNewCategory({ 
+                        name: "", 
+                        description: "",
+                        metaTitle: "",
+                        metaDescription: "",
+                        seoKeywords: ""
+                      })
                     }}>
                       <Plus className="mr-2 h-4 w-4" />
                       Nueva Categoría
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>{editCategory ? "Editar Categoría" : "Nueva Categoría"}</DialogTitle>
                       <DialogDescription>
                         {editCategory ? "Actualiza los detalles de la categoría" : "Añade una nueva categoría para tus productos"}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="name">Nombre</Label>
-                        <Input
-                          id="name"
-                          value={newCategory.name}
-                          onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                          placeholder="Ej: Agua Embotellada"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="description">Descripción</Label>
-                        <Textarea
-                          id="description"
-                          value={newCategory.description}
-                          onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
-                          placeholder="Descripción breve de la categoría"
-                        />
-                      </div>
-                    </div>
+                    <Tabs defaultValue="general" className="py-4">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="general">General</TabsTrigger>
+                        <TabsTrigger value="seo">SEO</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="general" className="mt-4">
+                        <div className="grid gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="name">Nombre</Label>
+                            <Input
+                              id="name"
+                              value={newCategory.name}
+                              onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                              placeholder="Ej: Agua Embotellada"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="description">Descripción</Label>
+                            <Textarea
+                              id="description"
+                              value={newCategory.description}
+                              onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                              placeholder="Descripción breve de la categoría"
+                            />
+                          </div>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="seo" className="mt-4">
+                        <div className="grid gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="metaTitle">Título SEO</Label>
+                            <Input
+                              id="metaTitle"
+                              value={newCategory.metaTitle || ""}
+                              onChange={(e) => setNewCategory({ ...newCategory, metaTitle: e.target.value })}
+                              placeholder="Ej: Ropa Ecológica | Puravida Store"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Recomendado: 50-60 caracteres para mejor visibilidad en resultados de búsqueda
+                            </p>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="metaDescription">Descripción SEO</Label>
+                            <Textarea
+                              id="metaDescription"
+                              value={newCategory.metaDescription || ""}
+                              onChange={(e) => setNewCategory({ ...newCategory, metaDescription: e.target.value })}
+                              placeholder="Descripción optimizada para motores de búsqueda"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Recomendado: 150-160 caracteres para mejor visibilidad en resultados de búsqueda
+                            </p>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="seoKeywords">Palabras clave</Label>
+                            <Input
+                              id="seoKeywords"
+                              value={newCategory.seoKeywords || ""}
+                              onChange={(e) => setNewCategory({ ...newCategory, seoKeywords: e.target.value })}
+                              placeholder="Ej: ropa ecológica, sostenible, algodón orgánico"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Palabras clave separadas por comas relevantes para esta categoría
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                       <Button onClick={handleSaveCategory}>{editCategory ? "Actualizar" : "Crear"}</Button>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { ArrowLeft, Truck, Printer, AlertTriangle, CheckCircle2, ShieldCheck, Banknote, CreditCard, Bug, Clock, PackageCheck, XCircle } from "lucide-react"
+import { ArrowLeft, Truck, Printer, AlertTriangle, CheckCircle2, ShieldCheck, Banknote, CreditCard, Bug, Clock, PackageCheck, XCircle, MoreHorizontal, Eye, Receipt } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import { Heading } from "@/components/ui/heading"
 import { toast } from "@/components/ui/use-toast"
 import { type Order } from "@/components/orders/orders-table"
 import { getOrderById, updateOrderStatus } from "@/lib/api"
+import Image from "next/image"
 
 interface OrderDetailsProps {
   orderId: string
@@ -379,6 +380,34 @@ export function OrderDetails({ orderId }: OrderDetailsProps) {
                   currency: "USD",
                 }).format(order.total || 0)
               }</span>
+            </div>
+
+            {/* Botón de procesamiento de pago y visualización de comprobante */}
+            <div className="mt-4 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => router.push(`/orders/${order.id}/payment`)}
+              >
+                <Receipt className="mr-2 h-4 w-4" />
+                {order.paymentProofUrl ? "Ver/editar detalles de pago" : "Procesar pago"}
+              </Button>
+              
+              {order.paymentProofUrl && (
+                <div className="mt-4 border rounded-md overflow-hidden">
+                  <div className="relative h-40">
+                    <Image
+                      src={order.paymentProofUrl}
+                      alt="Comprobante de pago"
+                      layout="fill"
+                      objectFit="contain"
+                    />
+                  </div>
+                  <div className="p-2 text-center">
+                    <span className="text-xs text-muted-foreground">Comprobante de pago</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

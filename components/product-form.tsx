@@ -63,6 +63,9 @@ const productFormSchema = z.object({
   availableOnline: z.boolean().default(true),
   featured: z.boolean().default(false),
   taxable: z.boolean().default(true),
+  metaTitle: z.string().optional(),
+  metaDescription: z.string().optional(),
+  seoKeywords: z.string().optional(),
   id: z.number().optional(),
   taxes: z.array(
     z.object({
@@ -87,6 +90,9 @@ const defaultValues: Partial<ProductFormValues> = {
   availableOnline: true,
   featured: false,
   taxable: true,
+  metaTitle: "",
+  metaDescription: "",
+  seoKeywords: "",
 }
 
 interface ProductFormProps {
@@ -194,13 +200,16 @@ export function ProductForm({ product }: ProductFormProps) {
       // Convertir la categoría a categoryIds (array de números)
       const categoryIds = data.category ? [parseInt(data.category)] : [];
       
-      // Incluir la información de impuestos
+      // Incluir la información de impuestos y SEO
       const formData = {
         ...data,
         taxes: productTaxes,
         categoryIds, // Agregar categoryIds como array
         // Las imágenes ya están subidas mediante los endpoints específicos
         imageUrl: realImages.length > 0 ? realImages[0].url : undefined,
+        metaTitle: data.metaTitle || "",
+        metaDescription: data.metaDescription || "",
+        seoKeywords: data.seoKeywords || ""
       };
       
       // Eliminar la propiedad category para no enviarla junto con categoryIds
@@ -663,6 +672,77 @@ export function ProductForm({ product }: ProductFormProps) {
                     </FormItem>
                   )}
                 />
+
+                {/* Nueva tarjeta para SEO */}
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle>Información SEO</CardTitle>
+                    <CardDescription>
+                      Optimiza tu producto para motores de búsqueda
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="metaTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Título SEO</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Ej: Agua Purificada Premium | Puravida Store" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Recomendado: 50-60 caracteres para mejor visibilidad en resultados de búsqueda
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="metaDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descripción SEO</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Breve descripción optimizada para motores de búsqueda" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Recomendado: 150-160 caracteres para mejor visibilidad en resultados de búsqueda
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="seoKeywords"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Palabras clave</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Ej: agua purificada, agua embotellada, hidratación" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Palabras clave separadas por comas relevantes para este producto
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </TabsContent>

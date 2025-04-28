@@ -239,6 +239,9 @@ export const createProduct = async (productData: {
 	metadata?: object;
 	images?: string[];
 	imageUrl?: string;
+	metaTitle?: string;
+	metaDescription?: string;
+	seoKeywords?: string;
 }) => {
 	try {
 		console.log("Datos del producto:", productData);
@@ -924,6 +927,9 @@ export const getCategoryById = async (id: string) => {
 export const createCategory = async (categoryData: {
 	name: string;
 	description?: string;
+	metaTitle?: string;
+	metaDescription?: string;
+	seoKeywords?: string;
 }) => {
 	try {
 		const response = await api.post("/categories", categoryData);
@@ -939,6 +945,9 @@ export const createCategory = async (categoryData: {
 export const updateCategory = async (id: string, categoryData: {
 	name?: string;
 	description?: string;
+	metaTitle?: string;
+	metaDescription?: string;
+	seoKeywords?: string;
 }) => {
 	try {
 		const response = await api.put(`/categories/${id}`, categoryData);

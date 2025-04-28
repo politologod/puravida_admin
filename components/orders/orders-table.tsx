@@ -13,7 +13,7 @@ import {
   type ColumnFiltersState,
   getFilteredRowModel,
 } from "@tanstack/react-table"
-import { MoreHorizontal, ArrowUpDown, Eye, FileText, Printer, Trash2, Truck, CheckCircle2, XCircle, CreditCard, Clock, PackageCheck } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, Eye, FileText, Printer, Trash2, Truck, CheckCircle2, XCircle, CreditCard, Clock, PackageCheck, Receipt } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -389,6 +389,11 @@ export function OrdersTable({ status }: OrdersTableProps) {
               <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/print`)}>
                 <Printer className="mr-2 h-4 w-4" />
                 Imprimir
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/payment`)}>
+                <Receipt className="mr-2 h-4 w-4" />
+                {order.paymentProofUrl ? "Ver/editar pago" : "Procesar pago"}
               </DropdownMenuItem>
               
               <DropdownMenuSeparator />

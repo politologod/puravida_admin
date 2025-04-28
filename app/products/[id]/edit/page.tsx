@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { PackageCheck, Tag, Receipt, X } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
 
 type Product = {
   id: number | string
@@ -33,6 +34,9 @@ type Product = {
     material?: string
     [key: string]: any
   }
+  metaTitle?: string
+  metaDescription?: string
+  seoKeywords?: string
   createdAt: string
   updatedAt: string
 }
@@ -89,7 +93,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           stock: data.stock || 0,
           category: data.category || "",
           imageUrl: data.imageUrl || "",
-          metadata: data.metadata || {}
+          metadata: data.metadata || {},
+          metaTitle: data.metaTitle || "",
+          metaDescription: data.metaDescription || "",
+          seoKeywords: data.seoKeywords || ""
         })
         
         // Inicializar categorías seleccionadas - Mejorado para manejar diferentes formatos
@@ -441,6 +448,9 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       const updateData = {
         ...formData,
         metadata,
+        metaTitle: formData.metaTitle || "",
+        metaDescription: formData.metaDescription || "",
+        seoKeywords: formData.seoKeywords || "",
         categoryIds: selectedCategories.map(id => parseInt(id))
       }
       
@@ -582,6 +592,56 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                           value={formData.description} 
                           onChange={handleInputChange} 
                         />
+                      </div>
+                      
+                      <Separator className="my-4" />
+                      
+                      <div>
+                        <h3 className="text-sm font-medium mb-3">Información SEO</h3>
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="metaTitle">Título SEO</Label>
+                            <Input 
+                              id="metaTitle" 
+                              name="metaTitle" 
+                              value={formData.metaTitle || ''} 
+                              onChange={handleInputChange} 
+                              placeholder="Ej: Camiseta de Algodón Premium | Puravida Store"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Recomendado: 50-60 caracteres
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="metaDescription">Descripción SEO</Label>
+                            <Textarea 
+                              id="metaDescription" 
+                              name="metaDescription" 
+                              rows={3} 
+                              value={formData.metaDescription || ''} 
+                              onChange={handleInputChange} 
+                              placeholder="Breve descripción optimizada para motores de búsqueda"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Recomendado: 150-160 caracteres
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="seoKeywords">Palabras clave</Label>
+                            <Input 
+                              id="seoKeywords" 
+                              name="seoKeywords" 
+                              value={formData.seoKeywords || ''} 
+                              onChange={handleInputChange} 
+                              placeholder="Palabras clave separadas por comas"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Ej: camiseta, algodón orgánico, ropa sostenible
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
