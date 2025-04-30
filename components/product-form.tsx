@@ -109,18 +109,21 @@ interface ProductImage {
 export function ProductForm({ product }: ProductFormProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("general")
-  const [images, setImages] = useState<ProductImage[]>([
+  const [mainImage, setMainImage] = useState<ProductImage>({ url: "/placeholder.svg?height=200&width=200" })
+  const [galleryImages, setGalleryImages] = useState<ProductImage[]>([
+    { url: "/placeholder.svg?height=200&width=200" },
+    { url: "/placeholder.svg?height=200&width=200" },
     { url: "/placeholder.svg?height=200&width=200" },
     { url: "/placeholder.svg?height=200&width=200" },
     { url: "/placeholder.svg?height=200&width=200" },
   ])
-  const [selectedImage, setSelectedImage] = useState<number | null>(0)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [taxes, setTaxes] = useState<Tax[]>([])
   const [productTaxes, setProductTaxes] = useState<ProductTax[]>([])
   const [isLoadingTaxes, setIsLoadingTaxes] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const mainImageInputRef = useRef<HTMLInputElement>(null)
+  const galleryImagesInputRef = useRef<HTMLInputElement>(null)
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -168,7 +171,7 @@ export function ProductForm({ product }: ProductFormProps) {
   async function onSubmit(data: ProductFormValues) {
     try {
       // Filtrar imágenes de placeholder
-      const realImages = images.filter(img => !img.url.includes('placeholder.svg'));
+      const realImages = galleryImages.filter(img => !img.url.includes('placeholder.svg'));
       
       // Validar que haya al menos una imagen
       if (realImages.length === 0) {
@@ -268,256 +271,118 @@ export function ProductForm({ product }: ProductFormProps) {
     router.push("/products")
   }
 
-  async function uploadImage(file: File, productId?: number) {
-    // Si no hay ID de producto, solo agregamos la imagen a la lista temporal
-    if (!productId) {
-      const imageUrl = URL.createObjectURL(file);
-      
-      setImages(prev => [
-        ...prev,
-        { 
-          url: imageUrl, 
-          file: file,
-          isUploading: false
-        }
-      ]);
-      
-      return;
-    }
-    
-    // Si hay un ID de producto, subimos la imagen al servidor
-    try {
-      const imageIndex = images.length;
-      
-      // Agregar imagen con estado de carga
-      setImages(prev => [
-        ...prev,
-        { 
-          url: URL.createObjectURL(file), 
-          file: file,
-          isUploading: true 
-        }
-      ]);
-      
-      // Subir la imagen
-      const response = await uploadProductImage(productId, file);
-      
-      // Actualizar el estado con la imagen subida
-      setImages(prev => {
-        const updated = [...prev];
-        updated[imageIndex] = {
-          url: response.imageUrl,
-          publicId: response.imagePublicId || response.public_id,
-          isUploading: false
-        };
-        return updated;
-      });
-      
-      return response;
-    } catch (error) {
-      console.error("Error al subir la imagen:", error);
-      
-      // Marcar la imagen como fallida
-      setImages(prev => {
-        const updated = [...prev];
-        if (updated[images.length - 1]) {
-          updated[images.length - 1].isUploading = false;
-        }
-        return updated;
-      });
-      
+  const handleMainImageUpload = async (file: File) => {
+    if (!product?.id) {
       toast({
-        title: "Error al subir imagen",
-        description: error instanceof Error ? error.message : "No se pudo subir la imagen",
+        title: "Error",
+        description: "Primero debes guardar el producto para subir imágenes",
         variant: "destructive",
-      });
+      })
+      return
     }
-  }
 
-  async function uploadMultipleImages(files: File[], productId?: number) {
-    // Si no hay ID de producto, solo agregamos las imágenes a la lista temporal
-    if (!files || files.length === 0) return;
-    
-    setIsUploading(true);
-    
     try {
-      if (!productId) {
-        // Agregar imágenes temporalmente con URL de objeto
-        const newImages = Array.from(files).map(file => ({
-          url: URL.createObjectURL(file),
-          file: file,
-          isUploading: false
-        }));
-        
-        setImages(prev => [
-          ...prev.filter(img => !img.url.includes('placeholder.svg')),
-          ...newImages
-        ]);
-        
-        setIsUploading(false);
-        return;
-      }
+      setIsUploading(true)
+      const response = await uploadProductImage(product.id.toString(), file)
       
-      // Si hay ID de producto, subir al servidor
-      const filesToUpload = Array.from(files);
-      
-      // Agregar imágenes con estado de carga
-      const newImageIndexes: number[] = [];
-      
-      setImages(prev => {
-        const filtered = prev.filter(img => !img.url.includes('placeholder.svg'));
-        
-        const newImages = filesToUpload.map(file => {
-          newImageIndexes.push(filtered.length + newImages.length);
-          return {
-            url: URL.createObjectURL(file),
-            file: file,
-            isUploading: true
-          };
-        });
-        
-        return [...filtered, ...newImages];
-      });
-      
-      // Subir imágenes en lotes de 5 (máximo permitido por el servidor)
-      for (let i = 0; i < filesToUpload.length; i += 5) {
-        const batch = filesToUpload.slice(i, i + 5);
-        const response = await uploadMultipleProductImages(productId, batch);
-        
-        // Actualizar estado de las imágenes
-        if (response && response.images) {
-          setImages(prev => {
-            const updated = [...prev];
-            
-            response.images.forEach((img: any, index: number) => {
-              const targetIndex = newImageIndexes[i + index];
-              if (updated[targetIndex]) {
-                updated[targetIndex] = {
-                  url: img.url,
-                  publicId: img.publicId,
-                  isUploading: false
-                };
-              }
-            });
-            
-            return updated;
-          });
-        }
-      }
-      
+      setMainImage({
+        url: response.data.url,
+        publicId: response.data.publicId,
+      })
+
       toast({
-        title: "Imágenes subidas",
-        description: `${filesToUpload.length} imagen(es) subidas correctamente.`,
-      });
+        title: "Éxito",
+        description: "Imagen principal actualizada",
+      })
     } catch (error) {
-      console.error("Error al subir imágenes:", error);
-      
-      // Marcar todas las imágenes como no cargando
-      setImages(prev => 
-        prev.map(img => ({...img, isUploading: false}))
-      );
-      
+      console.error("Error al subir imagen principal:", error)
       toast({
-        title: "Error al subir imágenes",
-        description: error instanceof Error ? error.message : "No se pudieron subir las imágenes",
+        title: "Error",
+        description: "No se pudo subir la imagen principal",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsUploading(false);
+      setIsUploading(false)
     }
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    await uploadMultipleImages(Array.from(files), product?.id);
-    
-    // Limpiar el input para permitir subir el mismo archivo nuevamente
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handleGalleryImagesUpload = async (files: FileList) => {
+    if (!product?.id) {
+      toast({
+        title: "Error",
+        description: "Primero debes guardar el producto para subir imágenes",
+        variant: "destructive",
+      })
+      return
     }
-  }
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(true);
-  }
-
-  function handleDragLeave() {
-    setIsDragging(false);
-  }
-
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    
-    // Filtrar solo archivos de imagen
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith("image/"));
-    
-    if (imageFiles.length > 0) {
-      await uploadMultipleImages(imageFiles, product?.id);
-    }
-  }
-
-  async function removeImage(index: number) {
-    const imageToRemove = images[index];
-    
-    // Si es una imagen de placeholder, solo eliminarla del array
-    if (imageToRemove.url.includes('placeholder.svg')) {
-      const newImages = [...images];
-      newImages.splice(index, 1);
-      setImages(newImages);
-      if (selectedImage === index) {
-        setSelectedImage(newImages.length > 0 ? 0 : null);
-      } else if (selectedImage !== null && selectedImage > index) {
-        setSelectedImage(selectedImage - 1);
-      }
-      return;
-    }
-    
-    // Si la imagen tiene ID público y producto ID, eliminarla del servidor
-    if (imageToRemove.publicId && product?.id) {
-      try {
-        await deleteProductImage(product.id, imageToRemove.publicId);
-        
-        // Eliminar del array local
-        const newImages = [...images];
-        newImages.splice(index, 1);
-        setImages(newImages);
-        
-        if (selectedImage === index) {
-          setSelectedImage(newImages.length > 0 ? 0 : null);
-        } else if (selectedImage !== null && selectedImage > index) {
-          setSelectedImage(selectedImage - 1);
-        }
-        
-        toast({
-          title: "Imagen eliminada",
-          description: "La imagen ha sido eliminada correctamente.",
-        });
-      } catch (error) {
-        console.error("Error al eliminar la imagen:", error);
-        toast({
-          title: "Error",
-          description: "No se pudo eliminar la imagen",
-          variant: "destructive",
-        });
-      }
-    } else {
-      // Si no tiene ID público, solo eliminarla del array local
-      const newImages = [...images];
-      newImages.splice(index, 1);
-      setImages(newImages);
+    try {
+      setIsUploading(true)
+      const response = await uploadMultipleProductImages(product.id.toString(), Array.from(files))
       
-      if (selectedImage === index) {
-        setSelectedImage(newImages.length > 0 ? 0 : null);
-      } else if (selectedImage !== null && selectedImage > index) {
-        setSelectedImage(selectedImage - 1);
+      const newGalleryImages = response.data.map((img: { url: string; publicId: string }) => ({
+        url: img.url,
+        publicId: img.publicId,
+      }))
+
+      setGalleryImages((prev) => {
+        const updated = [...prev]
+        newGalleryImages.forEach((img: ProductImage, index: number) => {
+          if (index < updated.length) {
+            updated[index] = img
+          }
+        })
+        return updated
+      })
+
+      toast({
+        title: "Éxito",
+        description: "Imágenes de galería actualizadas",
+      })
+    } catch (error) {
+      console.error("Error al subir imágenes de galería:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron subir las imágenes de galería",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleDeleteImage = async (publicId: string, isMain: boolean = false) => {
+    if (!product?.id || !publicId) return
+
+    try {
+      setIsUploading(true)
+      await deleteProductImage(product.id.toString(), publicId)
+
+      if (isMain) {
+        setMainImage({ url: "/placeholder.svg?height=200&width=200" })
+      } else {
+        setGalleryImages((prev) =>
+          prev.map((img) =>
+            img.publicId === publicId
+              ? { url: "/placeholder.svg?height=200&width=200" }
+              : img
+          )
+        )
       }
+
+      toast({
+        title: "Éxito",
+        description: "Imagen eliminada correctamente",
+      })
+    } catch (error) {
+      console.error("Error al eliminar imagen:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la imagen",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -743,6 +608,154 @@ export function ProductForm({ product }: ProductFormProps) {
                     />
                   </CardContent>
                 </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Contenido de la pestaña de imágenes */}
+          <TabsContent value="images">
+            <Card>
+              <CardHeader>
+                <CardTitle>Imágenes del Producto</CardTitle>
+                <CardDescription>
+                  Sube la imagen principal y hasta 5 imágenes adicionales para la galería
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Imagen Principal */}
+                <div className="space-y-4">
+                  <Label>Imagen Principal</Label>
+                  <div className="relative w-full max-w-xs">
+                    <div
+                      className={`relative aspect-square w-full overflow-hidden rounded-lg border-2 border-dashed ${
+                        isDragging ? "border-primary" : "border-muted"
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setIsDragging(true)
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setIsDragging(false)
+                        const file = e.dataTransfer.files[0]
+                        if (file) handleMainImageUpload(file)
+                      }}
+                    >
+                      <img
+                        src={mainImage.url}
+                        alt="Imagen principal"
+                        className="h-full w-full object-cover"
+                      />
+                      {mainImage.publicId && (
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2"
+                          onClick={() => handleDeleteImage(mainImage.publicId!, true)}
+                          disabled={isUploading}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      ref={mainImageInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleMainImageUpload(file)
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => mainImageInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      {isUploading ? "Subiendo..." : "Cambiar Imagen Principal"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Galería de Imágenes */}
+                <div className="space-y-4">
+                  <Label>Galería de Imágenes</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {galleryImages.map((image, index) => (
+                      <div key={index} className="relative aspect-square">
+                        <div
+                          className={`relative h-full w-full overflow-hidden rounded-lg border-2 border-dashed ${
+                            isDragging ? "border-primary" : "border-muted"
+                          }`}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            setIsDragging(true)
+                          }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            setIsDragging(false)
+                            const file = e.dataTransfer.files[0]
+                            if (file) {
+                              const files = new DataTransfer()
+                              files.items.add(file)
+                              handleGalleryImagesUpload(files.files)
+                            }
+                          }}
+                        >
+                          <img
+                            src={image.url}
+                            alt={`Imagen de galería ${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                          {image.publicId && (
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2"
+                              onClick={() => handleDeleteImage(image.publicId!)}
+                              disabled={isUploading}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <input
+                    type="file"
+                    ref={galleryImagesInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = e.target.files
+                      if (files) handleGalleryImagesUpload(files)
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => galleryImagesInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {isUploading ? "Subiendo..." : "Agregar Imágenes a la Galería"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
