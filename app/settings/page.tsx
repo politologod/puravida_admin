@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { SidebarNav } from "../../components/sidebar-nav"
 import { Header } from "../../components/header"
@@ -14,7 +14,7 @@ import { HeroCarouselSettings } from "../../components/settings/hero-carousel-se
 import { EcommerceSettings } from "../../components/settings/ecommerce-settings"
 import { TaxesSettings } from "../../components/settings/taxes-settings"
 
-export default function SettingsPage() {
+function SettingsContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
   const [activeTab, setActiveTab] = useState(tabParam || "profile")
@@ -53,6 +53,14 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Cargando configuración...</div>}>
+      <SettingsContent />
+    </Suspense>
   )
 }
 
