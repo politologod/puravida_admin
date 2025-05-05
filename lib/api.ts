@@ -3,7 +3,7 @@ import axios from "axios";
 
 // Configuración base de Axios
 const api = axios.create({
-	baseURL: "http://localhost:2300/api",
+	baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:2300/api",
 	withCredentials: true, // Esto envía cookies automáticamente
 	headers: {
 		"Content-Type": "application/json",
@@ -12,7 +12,7 @@ const api = axios.create({
 
 // Configuración para peticiones multipart/form-data (subida de archivos)
 const apiFormData = axios.create({
-	baseURL: "http://localhost:2300/api",
+	baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:2300/api",
 	withCredentials: true,
 	headers: {
 		"Content-Type": "multipart/form-data",
