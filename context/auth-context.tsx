@@ -42,28 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        if (isAuthenticated()) {
-          // Aquí podrías hacer una petición al backend para obtener los datos del usuario
-          // O renovar el token si es necesario
-          await checkAndRefreshToken();
-          // Simulemos que obtenemos datos del usuario
-          setUser({
-            id: 1,
-            name: 'Admin',
-            email: 'admin@example.com',
-            role: 'admin',
-          });
+        const res = await fetch('/api/auth/verify', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
         } else {
           setUser(null);
         }
       } catch (error) {
-        console.error('Error al verificar la autenticación:', error);
+        console.error('Error al verificar autenticación:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
-
+  
     checkAuth();
   }, []);
 

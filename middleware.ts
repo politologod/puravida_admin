@@ -5,34 +5,34 @@ import type { NextRequest } from 'next/server';
 const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
 
 export function middleware(request: NextRequest) {
-  // Verificar si hay cualquiera de las cookies de autenticación posibles
-  const authCookie = request.cookies.get('auth_token') || request.cookies.get('token');
-  
   const { pathname } = request.nextUrl;
-  console.log('Middleware - ruta actual:', pathname);
-  console.log('Middleware - cookies:', request.cookies.getAll());
-  console.log('Middleware - authCookie:', authCookie);
   
-  // Permitir acceso a rutas públicas sin token
+  // Comprobar si es una ruta pública
   if (publicRoutes.some(route => pathname.startsWith(route))) {
-    console.log('Middleware - permitiendo acceso a ruta pública');
     return NextResponse.next();
   }
   
-  // Si no hay cookie de autenticación y no es una ruta pública, redirigir a login
+  // Verificar si hay cualquiera de las cookies de autenticación posibles
+  const authCookie = request.cookies.get('auth_token')?.value || request.cookies.get('token')?.value;
+  
+  // Si no hay cookie de autenticación, redirigir a login
   if (!authCookie) {
-    console.log('Middleware - redirigiendo a login por falta de autenticación');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('returnUrl', pathname);
     return NextResponse.redirect(loginUrl);
   }
   
   // Si hay token, permitir acceso
-  console.log('Middleware - permitiendo acceso a ruta protegida');
   return NextResponse.next();
 }
 
+// Configuración de matcher para App Router de Next.js
 export const config = {
-  // Aplicar middleware a todas las rutas excepto a los archivos estáticos y API
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+  matcher: [
+    /*
+     * Match specific routes that require authentication
+     * Exclude API routes, static files, and public routes
+     */
+    '/((?!_next/|api/|login|forgot-password|reset-password|favicon.ico).*)',
+  ],
 }; 
